@@ -1,48 +1,76 @@
-from PySide6.QtWidgets import QMainWindow, QToolBar, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QStatusBar, QHeaderView
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMainWindow, QToolBar, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QStatusBar, QHeaderView, QStackedWidget, QMessageBox
+from PySide6.QtCore import Qt, QSize
 import psycopg
+import json
+
+with open('db_config.json') as f:
+    dbConfig = json.load(f)
+
+connString = (f"hostaddr={dbConfig['hostaddr']} port={dbConfig['port']} dbname={dbConfig['dbname']} user={dbConfig['user']} password={dbConfig['password']}")
 
 class MainWindow(QMainWindow):
     def __init__ (self, app):
         super().__init__()
         self.app = app
         self.setWindowTitle("MKPS")
-
+        self.resize(QSize(1280, 720))
+        self.setStatusBar(QStatusBar())
         self.toolbar = QToolBar()
 
+        self.pages = QStackedWidget()
+        self.setCentralWidget(self.pages)
+
+        artistSearchPage = ArtistSearchPage(self)
+        self.pages.addWidget(artistSearchPage)
+        self.pages.setCurrentWidget(artistSearchPage)
+
+class ArtistSearchPage(QTableWidget):
+    def __init__ (self, mainWindow):
+        super().__init__(mainWindow)
+        self.mainWindow = mainWindow
+
+        self.initToolBar()
+
+        self.setColumnCount(3)
+        self.setHorizontalHeaderLabels(['Name','Description',''])
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+    def initToolBar(self):
+        self.mainWindow.removeToolBar(self.mainWindow.toolbar)
+        self.mainWindow.toolbar = QToolBar()
+
         artistSearchLabel = QLabel("Search artists: ")
-        self.artistSearchBox = QLineEdit()
+        self.artistSearchBox = QLineEdit(getattr(self, 'userInput', ''))
         self.artistSearchBox.returnPressed.connect(self.searchArtists)
         artistSearchButton = QPushButton('Search')
         artistSearchButton.clicked.connect(self.searchArtists)
 
-        self.toolbar.addWidget(artistSearchLabel)
-        self.toolbar.addWidget(self.artistSearchBox)
-        self.toolbar.addWidget(artistSearchButton)
-        self.addToolBar(self.toolbar)
+        self.mainWindow.toolbar.addWidget(artistSearchLabel)
+        self.mainWindow.toolbar.addWidget(self.artistSearchBox)
+        self.mainWindow.toolbar.addWidget(artistSearchButton)
 
-        self.setStatusBar(QStatusBar())
+        self.mainWindow.addToolBar(self.mainWindow.toolbar)
 
     def searchArtists(self):
-        self.statusBar().showMessage('Searching...')
-        self.app.processEvents()
+        self.userInput = self.artistSearchBox.text()
+        if self.userInput == '':
+            QMessageBox.information(None,'Empty Search','Search box is empty!')
+            return
 
-        userInput = self.artistSearchBox.text()
-        with psycopg.connect("hostaddr=192.168.1.100 port=5432 dbname=discogs user=psycopg password=kjkszpj") as conn:
+        self.mainWindow.statusBar().showMessage('Searching...')
+        self.mainWindow.app.processEvents()
+
+        with psycopg.connect(connString) as conn:
             with conn.cursor() as cur:
                 query = """
                 SELECT id, name, profile
                 FROM artist
                 WHERE name ILIKE %s
                 """
-                cur.execute(query, (f"%{userInput}%",))
+                cur.execute(query, (f"%{self.userInput}%",))
                 results = cur.fetchall()
 
-        self.table = QTableWidget()
-        self.table.setRowCount(len(results))
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(['Name','Description',''])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.setRowCount(len(results))
         for i, artist in enumerate(results):
             nameItem = QTableWidgetItem(artist[1])
             nameItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
@@ -53,48 +81,73 @@ class MainWindow(QMainWindow):
             selectButton = QPushButton('Select')
             selectButton.clicked.connect(lambda checked, a=artist[0]:self.showArtistMasters(a))
 
-            self.table.setItem(i, 0, nameItem)
-            self.table.setItem(i, 1, descriptionItem)
-            self.table.setItem(i, 2, QTableWidgetItem())
-            self.table.setCellWidget(i, 2, selectButton)
+            self.setItem(i, 0, nameItem)
+            self.setItem(i, 1, descriptionItem)
+            self.setItem(i, 2, QTableWidgetItem())
+            self.setCellWidget(i, 2, selectButton)
         
-        self.setCentralWidget(self.table)
-        self.statusBar().showMessage(f"Found {len(results)} artists")
+        self.mainWindow.statusBar().showMessage(f"Found {len(results)} artists")
 
-    def showArtistMasters(self, artistId):
-        with psycopg.connect("hostaddr=192.168.1.100 port=5432 dbname=discogs user=psycopg password=kjkszpj") as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT name FROM artist WHERE id = %s", (artistId,))
-                self.statusBar().showMessage(cur.fetchone()[0])
+    def showArtistMasters(self, artistID):
+        artistMastersListPage = ArtistMastersListPage(self.mainWindow,artistID)
+        self.mainWindow.pages.addWidget(artistMastersListPage)
+        self.mainWindow.pages.setCurrentWidget(artistMastersListPage)
+        
+class ArtistMastersListPage(QTableWidget):
+        def __init__(self, mainWindow, artistID):
+            super().__init__(mainWindow)
+            self.mainWindow = mainWindow
 
-                query = """
-                SELECT master.id, master.title, master.year
-                FROM master_artist
-                JOIN master ON master.id = master_id
-                JOIN artist ON artist.id = artist_id
-                WHERE artist.id = %s
-                ORDER BY master.year DESC
-                """
-                cur.execute(query, (artistId,))
-                results = cur.fetchall()
+            with psycopg.connect(connString) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT name FROM artist WHERE id = %s", (artistID,))
+                    self.mainWindow.statusBar().showMessage(cur.fetchone()[0])
 
-                masterTable = QTableWidget()
-                masterTable.setRowCount(len(results))
-                masterTable.setColumnCount(2)
-                masterTable.setHorizontalHeaderLabels(['Title','Release Year'])
-                masterTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-                for i, master in enumerate(results):
-                    titleItem = QTableWidgetItem(master[1])
-                    titleItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                    query = """
+                    SELECT master.id, master.title, master.year
+                    FROM master_artist
+                    JOIN master ON master.id = master_id
+                    JOIN artist ON artist.id = artist_id
+                    WHERE artist.id = %s
+                    ORDER BY master.year DESC
+                    """
+                    cur.execute(query, (artistID,))
+                    results = cur.fetchall()
 
-                    print(master[2])
-                    yearItem = QTableWidgetItem(str(master[2]))
-                    yearItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self.setRowCount(len(results))
+            self.setColumnCount(2)
+            self.setHorizontalHeaderLabels(['Title','Release Year'])
+            self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            for i, master in enumerate(results):
+                titleItem = QTableWidgetItem(master[1])
+                titleItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
-                    masterTable.setItem(i, 0, titleItem)
-                    masterTable.setItem(i, 1, yearItem)
+                yearItem = QTableWidgetItem(str(master[2]))
+                yearItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
-                self.setCentralWidget(masterTable)
-                returnButton = QPushButton('Return')
-                returnButton.clicked.connect(lambda checked, a=self.table:self.setCentralWidget(a))
-                self.toolbar.addWidget(returnButton)
+                self.setItem(i, 0, titleItem)
+                self.setItem(i, 1, yearItem)
+
+            self.mainWindow.removeToolBar(self.mainWindow.toolbar)
+            self.mainWindow.toolbar = ReturnToolBar(self)
+            self.mainWindow.addToolBar(self.mainWindow.toolbar)
+            
+
+class ReturnToolBar(QToolBar):
+    def __init__(self, currPage):
+        super().__init__()
+        self.currPage = currPage
+
+        returnButton = QPushButton('Return')
+        returnButton.clicked.connect(self.setPreviousWindow)
+        self.addWidget(returnButton)
+
+    def setPreviousWindow(self):
+        curr_index = self.currPage.mainWindow.pages.currentIndex()
+        self.currPage.mainWindow.pages.removeWidget(self.currPage)
+        self.currPage.mainWindow.pages.setCurrentIndex(curr_index - 1)
+        self.currPage.mainWindow.statusBar().clearMessage()
+        try:
+            self.currPage.mainWindow.pages.currentWidget().initToolBar()
+        except AttributeError:
+            self.currPage.mainWindow.removeToolBar(self)
