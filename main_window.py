@@ -1,182 +1,153 @@
-from PySide6.QtWidgets import QMainWindow, QPushButton, QGridLayout, QWidget, QToolBar, QLineEdit, QLabel, QStatusBar, QButtonGroup, QTableWidget, QTableWidgetItem, QHeaderView
-from PySide6.QtGui import QPixmap, QIcon
-from PySide6.QtCore import QSize , Qt
-import discogs_client as discogs
-from discogs_client.exceptions import HTTPError
-from urllib.request import Request, urlopen
-import webbrowser
-import time
+from PySide6.QtWidgets import QMainWindow, QToolBar, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QStatusBar, QHeaderView, QStackedWidget, QMessageBox
+from PySide6.QtCore import Qt, QSize
+import psycopg
+import json
 
-d = discogs.Client('mkps', user_token='vnRSeBrormvwiawEirpmXqhlUnedHQWEKYCMDrzP')
+with open('db_config.json') as f:
+    dbConfig = json.load(f)
 
-# d = discogs_client.Client(
-#     'mkps',
-#     consumer_key='SRxPQVqksmdWkRaxLpZO',
-#     consumer_secret='lnDYNGkWKoZYPttqedeaRWUtmdOyFCJF'
-# )
-
-def getImgDataFromMasterID(ID):
-    release = d.master(ID)
-    req = Request(release.images[0]['uri'], headers={'User-Agent': 'Mozilla/5.0'})
-    data = urlopen(req).read()
-    return data
-
-def getImgDataFromLink(imgLink):
-    req = Request(imgLink, headers={'User-Agent': 'Mozilla/5.0'})
-    data = urlopen(req).read()
-    return data
+connString = (f"hostaddr={dbConfig['hostaddr']} port={dbConfig['port']} dbname={dbConfig['dbname']} user={dbConfig['user']} password={dbConfig['password']}")
 
 class MainWindow(QMainWindow):
     def __init__ (self, app):
         super().__init__()
         self.app = app
-        self.setWindowTitle('MKPS')
-        self.resize(self.width(),250)
-
-        self.gridItemSize = QSize(200,200)
-        self.tableIconSize = 50
-
-        self.albums = []
-
-        toolbar = QToolBar()
-
-        artistSearchLabel = QLabel(f"Search artist's discography:  ")
-        self.artistSearchBox = QLineEdit()
-        self.artistSearchBox.returnPressed.connect(self.searchAlbums)
-        artistSearchButton = QPushButton('Search')
-        artistSearchButton.clicked.connect(self.searchAlbums)
-
-        self.gridViewButton = QPushButton(icon=QIcon("./images/gridView.png"))
-        self.gridViewButton.setCheckable(True)
-        self.gridViewButton.setChecked(True)
-        tableViewButton = QPushButton(icon=QIcon("./images/tableView.png"))
-        tableViewButton.setCheckable(True)
-        viewButtonGroup = QButtonGroup(self)
-        viewButtonGroup.addButton(self.gridViewButton)
-        viewButtonGroup.addButton(tableViewButton)
-        self.gridViewButton.toggled.connect(self.setView)
-
-        toolbar.addWidget(artistSearchLabel)
-        toolbar.addWidget(self.artistSearchBox)
-        toolbar.addWidget(artistSearchButton)
-        toolbar.addSeparator()
-        toolbar.addWidget(self.gridViewButton)
-        toolbar.addWidget(tableViewButton)
-        self.addToolBar(toolbar)
-
+        self.setWindowTitle("MKPS")
+        self.resize(QSize(1280, 720))
         self.setStatusBar(QStatusBar())
+        self.toolbar = QToolBar()
 
-    
-    def searchAlbums(self):
-        if self.artistSearchBox.text() == '':
-            self.statusBar().showMessage('Empty search string!')
+        self.pages = QStackedWidget()
+        self.setCentralWidget(self.pages)
+
+        artistSearchPage = ArtistSearchPage(self)
+        self.pages.addWidget(artistSearchPage)
+        self.pages.setCurrentWidget(artistSearchPage)
+
+class ArtistSearchPage(QTableWidget):
+    def __init__ (self, mainWindow):
+        super().__init__(mainWindow)
+        self.mainWindow = mainWindow
+
+        self.initToolBar()
+
+        self.setColumnCount(3)
+        self.setHorizontalHeaderLabels(['Name','Description',''])
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+    def initToolBar(self):
+        self.mainWindow.removeToolBar(self.mainWindow.toolbar)
+        self.mainWindow.toolbar = QToolBar()
+
+        artistSearchLabel = QLabel("Search artists: ")
+        self.artistSearchBox = QLineEdit(getattr(self, 'userInput', ''))
+        self.artistSearchBox.returnPressed.connect(self.searchArtists)
+        artistSearchButton = QPushButton('Search')
+        artistSearchButton.clicked.connect(self.searchArtists)
+
+        self.mainWindow.toolbar.addWidget(artistSearchLabel)
+        self.mainWindow.toolbar.addWidget(self.artistSearchBox)
+        self.mainWindow.toolbar.addWidget(artistSearchButton)
+
+        self.mainWindow.addToolBar(self.mainWindow.toolbar)
+
+    def searchArtists(self):
+        self.userInput = self.artistSearchBox.text()
+        if self.userInput == '':
+            QMessageBox.information(None,'Empty Search','Search box is empty!')
             return
+
+        self.mainWindow.statusBar().showMessage('Searching...')
+        self.mainWindow.app.processEvents()
+
+        with psycopg.connect(connString) as conn:
+            with conn.cursor() as cur:
+                query = """
+                SELECT id, name, profile
+                FROM artist
+                WHERE name ILIKE %s
+                """
+                cur.execute(query, (f"%{self.userInput}%",))
+                results = cur.fetchall()
+
+        self.setRowCount(len(results))
+        for i, artist in enumerate(results):
+            nameItem = QTableWidgetItem(artist[1])
+            nameItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+
+            descriptionItem = QTableWidgetItem(artist[2])
+            descriptionItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+
+            selectButton = QPushButton('Select')
+            selectButton.clicked.connect(lambda checked, a=artist[0]:self.showArtistMasters(a))
+
+            self.setItem(i, 0, nameItem)
+            self.setItem(i, 1, descriptionItem)
+            self.setItem(i, 2, QTableWidgetItem())
+            self.setCellWidget(i, 2, selectButton)
         
-        startTime = time.time()
-        self.albums.clear()
+        self.mainWindow.statusBar().showMessage(f"Found {len(results)} artists")
 
-        results = d.search(artist=self.artistSearchBox.text(),type='master',format='album',sort='year')
-        resultCount = len(results)
-        self.statusBar().showMessage(f"Processed 0 of {resultCount}")
-        self.app.processEvents()
-        for i, master in enumerate(results):
-            print(master)
-            try:
-                albumPixmap = QPixmap()
-                albumPixmap.loadFromData(getImgDataFromLink(master.images[0]['uri']))
-                styleList = master.styles
-                styles = ''
-                for style in styleList:
-                    if style == styleList[-1]:
-                        styles += style
-                    else:
-                        styles += f"{style}, "
-                self.albums.append({
-                    'cover': albumPixmap,
-                    'url': master.url,
-                    'title': master.title,
-                    'styles': styles,
-                    'year': master.main_release.year})
-
-            except HTTPError as e:
-                if e.status_code == 404:
-                    print(f"Skipping non-existent master release: {master}")
-                else:
-                    raise
-            self.statusBar().showMessage(f"Processed {i+1} of {resultCount}")
-            self.app.processEvents()
+    def showArtistMasters(self, artistID):
+        artistMastersListPage = ArtistMastersListPage(self.mainWindow,artistID)
+        self.mainWindow.pages.addWidget(artistMastersListPage)
+        self.mainWindow.pages.setCurrentWidget(artistMastersListPage)
         
-        self.statusBar().showMessage(f"Found {len(self.albums)} albums by {self.artistSearchBox.text()} in {round(time.time() - startTime,2)}s")
-        self.setView()
-        
+class ArtistMastersListPage(QTableWidget):
+        def __init__(self, mainWindow, artistID):
+            super().__init__(mainWindow)
+            self.mainWindow = mainWindow
 
-    def setView(self):
-        #self.clearLayout()
-        if self.gridViewButton.isChecked():
-            self.fillGrid()
-        else:
-            self.fillTable()
+            with psycopg.connect(connString) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT name FROM artist WHERE id = %s", (artistID,))
+                    self.mainWindow.statusBar().showMessage(cur.fetchone()[0])
 
-    def fillGrid(self):
-        gridWidget = QWidget()
-        layout = QGridLayout()
-        rowCount = 0
-        columnCount = 0
-        for album in self.albums:
-            gridItem = QPushButton(icon=album['cover'])
-            gridItem.setIconSize(self.gridItemSize)
-            gridItem.setFixedSize(self.gridItemSize)
-            gridItem.clicked.connect(lambda checked, a=album['url']:webbrowser.open(a))
-            layout.addWidget(gridItem,rowCount,columnCount)
-            columnCount += 1
-            if columnCount == 6:
-                rowCount += 1
-                columnCount = 0
+                    query = """
+                    SELECT master.id, master.title, master.year
+                    FROM master_artist
+                    JOIN master ON master.id = master_id
+                    JOIN artist ON artist.id = artist_id
+                    WHERE artist.id = %s
+                    ORDER BY master.year DESC
+                    """
+                    cur.execute(query, (artistID,))
+                    results = cur.fetchall()
 
-        gridWidget.setLayout(layout)
-        self.setCentralWidget(gridWidget)
+            self.setRowCount(len(results))
+            self.setColumnCount(2)
+            self.setHorizontalHeaderLabels(['Title','Release Year'])
+            self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            for i, master in enumerate(results):
+                titleItem = QTableWidgetItem(master[1])
+                titleItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
-    def fillTable(self):
-        table = QTableWidget()
-        table.setRowCount(len(self.albums))
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels(['Cover','Title','Genre','Release Year','Discogs Page'])
-        table.setIconSize(QSize(self.tableIconSize,self.tableIconSize))
-        table.verticalHeader().setDefaultSectionSize(self.tableIconSize)
-        #table.setColumnWidth(0, self.tableIconSize)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+                yearItem = QTableWidgetItem(str(master[2]))
+                yearItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
-        for i, album in enumerate(self.albums):
-            coverItem = QTableWidgetItem(QIcon(album['cover']), '')
-            coverItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self.setItem(i, 0, titleItem)
+                self.setItem(i, 1, yearItem)
 
-            titleItem = QTableWidgetItem(album['title'])
-            titleItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self.mainWindow.removeToolBar(self.mainWindow.toolbar)
+            self.mainWindow.toolbar = ReturnToolBar(self)
+            self.mainWindow.addToolBar(self.mainWindow.toolbar)
+            
 
-            stylesItem = QTableWidgetItem(album['styles'])
-            stylesItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+class ReturnToolBar(QToolBar):
+    def __init__(self, currPage):
+        super().__init__()
+        self.currPage = currPage
 
-            yearItem = QTableWidgetItem(str(album['year']))
-            yearItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+        returnButton = QPushButton('Return')
+        returnButton.clicked.connect(self.setPreviousWindow)
+        self.addWidget(returnButton)
 
-            linkButton = QPushButton('Link')
-            linkButton.clicked.connect(lambda checked, a=album['url']:webbrowser.open(a))
-
-            table.setItem(i, 0, coverItem)
-            table.setItem(i, 1, titleItem)
-            table.setItem(i, 2, stylesItem)
-            table.setItem(i, 3, yearItem)
-            table.setItem(i, 4, QTableWidgetItem())
-            table.setCellWidget(i, 4, linkButton)
-
-        self.setCentralWidget(table)
-
-    # def clearLayout(self):
-    #     if self.mainWidget.layout() is not None:
-    #         while self.mainWidget.layout().count():
-    #             child = self.mainWidget.layout().takeAt(0)
-    #             child.widget().deleteLater()
-    #         self.mainWidget.layout().deleteLater()
-
-
+    def setPreviousWindow(self):
+        curr_index = self.currPage.mainWindow.pages.currentIndex()
+        self.currPage.mainWindow.pages.removeWidget(self.currPage)
+        self.currPage.mainWindow.pages.setCurrentIndex(curr_index - 1)
+        self.currPage.mainWindow.statusBar().clearMessage()
+        try:
+            self.currPage.mainWindow.pages.currentWidget().initToolBar()
+        except AttributeError:
+            self.currPage.mainWindow.removeToolBar(self)
