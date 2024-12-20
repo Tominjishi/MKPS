@@ -1,7 +1,0 @@
-{
-    "hostaddr": "YOUR_HOST_ADDRESS",
-    "port": 5432,
-    "dbname": "YOUR_DB_NAME",
-    "user": "YOUR_USERNAME",
-    "password": "YOUR_PASSWORD"
-}
