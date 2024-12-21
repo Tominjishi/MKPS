@@ -40,23 +40,23 @@ class ReleaseGroupListPage(QWidget):
 
         # EP Table
         # Title
-        self.ep_table_title = QLabel("EP's", self)
-        self.ep_table_title.setStyleSheet('font-size: 16px;')
+        self.epTableTitle = QLabel("EP's", self)
+        self.epTableTitle.setStyleSheet('font-size: 16px;')
         # Table Browser
-        self.ep_table_browser = ReleaseGroupBrowser(self)
+        self.epTableBrowser = ReleaseGroupBrowser(self)
         #Page Navigation
-        self.ep_table_browser.prevButton.clicked.connect(
-            lambda checked, browser=self.ep_table_browser, releaseType='ep':self.previousPage(browser, releaseType)
+        self.epTableBrowser.prevButton.clicked.connect(
+            lambda checked, browser=self.epTableBrowser, releaseType='ep':self.previousPage(browser, releaseType)
         )
-        self.ep_table_browser.nextButton.clicked.connect(
-            lambda checked, browser=self.ep_table_browser, releaseType='ep':self.nextPage(browser, releaseType)
+        self.epTableBrowser.nextButton.clicked.connect(
+            lambda checked, browser=self.epTableBrowser, releaseType='ep':self.nextPage(browser, releaseType)
         )
 
         layout.addWidget(self.artistNameLabel)
         layout.addWidget(self.albumTableTitle)
         layout.addWidget(self.albumTableBrowser)
-        layout.addWidget(self.ep_table_title)
-        layout.addWidget(self.ep_table_browser)
+        layout.addWidget(self.epTableTitle)
+        layout.addWidget(self.epTableBrowser)
 
     def populateWidget(self, artistMBID, artistName = ''):
         self.artistMBID = artistMBID
@@ -74,15 +74,15 @@ class ReleaseGroupListPage(QWidget):
         self.initTableBrowser(self.albumTableBrowser, albumCount, albumList)
 
         # Init EP
-        ep_result = browseReleaseGroups(
+        epResult = browseReleaseGroups(
             artist=self.artistMBID,
             release_type='ep',
             limit=self.PAGE_SIZE
         )
-        ep_count = ep_result.get('release-group-count', 0)
-        ep_list = ep_result.get('release-group-list', [])
-        self.ep_table_title.setText(f"EP's ({ep_count})")
-        self.initTableBrowser(self.ep_table_browser, ep_count, ep_list)
+        epCount = epResult.get('release-group-count', 0)
+        epList = epResult.get('release-group-list', [])
+        self.epTableTitle.setText(f"EP's ({epCount})")
+        self.initTableBrowser(self.epTableBrowser, epCount, epList)
 
     def initTableBrowser(self, tableBrowser, releaseCount, releaseList):
         if releaseCount == 0 or not releaseList:
@@ -168,5 +168,5 @@ class ReleaseGroupListPage(QWidget):
         self.populateTable(tableBrowser, releaseList)
 
     def navigateToReleaseGroupCardPage(self, releaseGroupMBID):
-        self.mainWindow.releaseGroupCardPage.populateWidget(releaseGroupMBID)
+        self.mainWindow.releaseGroupCardPage.populateFromAPI(releaseGroupMBID)
         self.mainWindow.navigateToPage(self.mainWindow.releaseGroupCardPage)

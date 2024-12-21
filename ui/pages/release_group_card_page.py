@@ -3,35 +3,114 @@ from PySide6.QtWidgets import(
     QLabel,
     QGridLayout,
     QListWidget,
-    QListWidgetItem
+    QListWidgetItem,
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QComboBox,
+    
 )
 from PySide6.QtGui import QPixmap
 
-from services.musicbrainz_api import getReleaseGroupByID, browseReleases
+from services.musicbrainz_api import getReleaseGroupByID, browseReleases, lookupReleaseGroupDict
 from services.cover_art_archive import getReleaseGroupFrontCoverData
 
 class ReleaseGroupCardPage(QWidget):
     def __init__(self, mainWindow):
         super().__init__(mainWindow)
-        self.layout = QGridLayout(self)
+        self.tempCollectionEntry = {
+            "release_group_mbid": '',
+            "type": '',
+            "title": '',
+            "release_date": '',
+            "format": '',
+            "artist_credit_phrase": '',
+            "cover": None,
+        }
 
-        self.imgLabel = QLabel()
+        layout = QHBoxLayout(self)
 
-        self.layout.addWidget(self.imgLabel, 0, 2, 2, 2)
+        # Layout for left side (img and button/combobox under)
+        leftSideLayout = QVBoxLayout()
+        self.imgLabel = QLabel(self)
+        self.addButton = QPushButton('Add to collection', self)
+        self.formatOption = QComboBox(self)
+        leftSideLayout.addWidget(self.imgLabel)
+        leftSideLayout.addWidget(self.addButton)
+        leftSideLayout.addWidget(self.formatOption)
+        # Hide button (API) and combobox (local)
+        self.addButton.hide()
+        self.formatOption.hide()
+
+        # Right side
+        self.collectionEntryGroupBox = QGroupBox()
+        self.collectionEntryGroupBox.setStyleSheet("""
+            QGroupBox::title {
+                font-size: 41px;                                    
+                font-weight: bold;
+            }
+            QGroupBox {
+                font-size: 21px;
+            }
+        """)
+
+        self.typeLabel = QLabel(self.collectionEntryGroupBox)
+        self.releaseDateLabel = QLabel(self.collectionEntryGroupBox)
+        self.genreLabel = QLabel("Genres", self.collectionEntryGroupBox)
+        self.genresListLabel = QLabel('', self.genreLabel)
+
+        collectionEntryLayout = QVBoxLayout(self.collectionEntryGroupBox)
+        collectionEntryLayout.addWidget(self.typeLabel)
+        collectionEntryLayout.addWidget(self.releaseDateLabel)
+        collectionEntryLayout.addWidget(self.genreLabel)
+        collectionEntryLayout.addWidget(self.genresListLabel)     
+    
+        layout.addLayout(leftSideLayout)
+        layout.addWidget(self.collectionEntryGroupBox)
+
         
-    def populateWidget(self, releaseGroupMBID):
+    def populateFromAPI(self, releaseGroupMBID):
+        self.addButton.show()
+
         result = getReleaseGroupByID(
             id=releaseGroupMBID,
             includes=['artists', 'releases', 'media']
         )
         releaseGroup = result.get('release-group')
-        
-        # Fill data
-        self.releaseGroupMBID = releaseGroupMBID
-        self.type = releaseGroup.get('type')
-        self.title = releaseGroup.get('title')
-        self.releaseDate = releaseGroup.get('first-release-date','Unknown')
-        self.artistCreditPhrase = releaseGroup.get('artist-credit-phrase')
+
+        self.artistCredit = releaseGroup.get('artist-credit-phrase', '')
+        self.title = releaseGroup.get('title', '')
+        groupBoxTitle = self.artistCredit
+        if self.artistCredit and self.title:
+            groupBoxTitle += ' - '
+        groupBoxTitle += self.title
+        self.collectionEntryGroupBox.setTitle(groupBoxTitle)
+
+        self.typeLabel.setText(releaseGroup.get('type', ''))
+        self.releaseDateLabel.setText(releaseGroup.get('first-release-date', ''))
+
+        # Get genres
+        genreRelGroup = lookupReleaseGroupDict(releaseGroupMBID, 'genres')
+        if genreRelGroup[0] == 200:
+            genres = genreRelGroup[1].get('genres',[])
+            self.sortedGenres = sorted(genres, key=lambda a: a['count'], reverse=True)
+        else:
+            self.sortedGenres = []
+
+        if self.sortedGenres:
+            genreList = ''
+            self.genreLabel.show()
+            iterTimes = min(len(self.sortedGenres), 5)
+            for i in range(iterTimes):
+                genreList += self.sortedGenres[i]['name'].capitalize()
+                if i < iterTimes - 1:
+                    genreList += ', '
+            self.genresListLabel.setText(genreList)
+        else:
+            self.genreLabel.hide()
+            
+        # Get artists
         self.artists = []
         credit = releaseGroup.get('artist-credit', [])
         for artist in credit:
@@ -55,7 +134,7 @@ class ReleaseGroupCardPage(QWidget):
         else:
             self.imgLabel.setText(requestContent)
 
-        self.tempFillPage()
+        # self.tempFillPage()
 
     def getFormats(self, releaseGroupMBID, totalReleaseCount, firstReleaseList):
         formats = set()
