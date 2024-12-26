@@ -2,7 +2,7 @@ import musicbrainzngs as m
 import requests
 import json
 
-m.set_useragent('MKPS(Uni project)','0.2.0','burvistoms@gmail.com')
+m.set_useragent('MKPS(Uni project)','0.2.3','burvistoms@gmail.com')
 MB_URL = 'https://musicbrainz.org/ws/2/'
 
 def searchArtists(query, limit=None, offset=None):
@@ -22,7 +22,7 @@ def browseReleases(artist=None, track_artist=None, label=None, recording=None, r
     return result
 
 def lookupReleaseGroupDict(id, inc=''):
-    url = MB_URL + f"release-group/{id}?"
+    url = MB_URL + 'release-group/' + id + '?'
     if inc:
         url += 'inc=' + inc + '&'
     url += 'fmt=json'

@@ -11,6 +11,7 @@ from ui.pages.home_page import HomePage
 from ui.pages.artist_search_page import ArtistSearchPage
 from ui.pages.release_group_list_page import ReleaseGroupListPage
 from ui.pages.release_group_card_page import ReleaseGroupCardPage
+from ui.pages.collection_page import CollectionPage
 
 class MainWindow(QMainWindow):
     def __init__ (self, app):
@@ -18,7 +19,7 @@ class MainWindow(QMainWindow):
         # Initialize main window parameters
         self.app = app
         self.setWindowTitle('MKPS')
-        self.resize(QSize(500,720))
+        self.resize(QSize(600, 400))
         self.setStatusBar(QStatusBar(self))
 
         # Initialize central QStackedWidget
@@ -31,10 +32,12 @@ class MainWindow(QMainWindow):
         self.artistSearchPage = ArtistSearchPage(self)
         self.releaseGroupListPage = ReleaseGroupListPage(self)
         self.releaseGroupCardPage = ReleaseGroupCardPage(self)
+        self.collectionPage = CollectionPage(self)
         self.pages.addWidget(self.homePage)
         self.pages.addWidget(self.artistSearchPage)
         self.pages.addWidget(self.releaseGroupListPage)
         self.pages.addWidget(self.releaseGroupCardPage)
+        self.pages.addWidget(self.collectionPage)
         
         # Initialize ToolBar
         self.toolbar = QToolBar(self)

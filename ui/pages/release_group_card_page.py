@@ -1,153 +1,190 @@
+# ui
 from PySide6.QtWidgets import(
     QWidget,
     QLabel,
-    QGridLayout,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
     QHBoxLayout,
     QVBoxLayout,
-    QGroupBox,
     QComboBox,
-    
+    QSizePolicy,
+    QListWidget,
+    QDialog,
+    QMessageBox,
 )
 from PySide6.QtGui import QPixmap
-
-from services.musicbrainz_api import getReleaseGroupByID, browseReleases, lookupReleaseGroupDict
+from PySide6.QtCore import Qt, QByteArray
+from PySide6.QtSql import QSqlDatabase, QSqlQuery
+# api services
+from services.musicbrainz_api import browseReleases, lookupReleaseGroupDict
 from services.cover_art_archive import getReleaseGroupFrontCoverData
 
 class ReleaseGroupCardPage(QWidget):
     def __init__(self, mainWindow):
         super().__init__(mainWindow)
-        self.tempCollectionEntry = {
-            "release_group_mbid": '',
-            "type": '',
-            "title": '',
-            "release_date": '',
-            "format": '',
-            "artist_credit_phrase": '',
-            "cover": None,
-        }
+        self.db = QSqlDatabase().database()
+        # self.tempCollectionEntry = {
+        #     "release_group_mbid": '',
+        #     "type": '',
+        #     "title": '',
+        #     "release_date": '',
+        #     "format": '',
+        #     "artist_credit_phrase": '',
+        #     "cover": None,
+        # }
+        self.tempCollectionEntry = {}
 
-        layout = QHBoxLayout(self)
+        mainLayout = QHBoxLayout(self)
 
         # Layout for left side (img and button/combobox under)
-        leftSideLayout = QVBoxLayout()
+        leftLayout = QVBoxLayout()
+        
         self.imgLabel = QLabel(self)
+        self.imgLabel.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.imgLabel.setAlignment(Qt.AlignCenter)
+
         self.addButton = QPushButton('Add to collection', self)
+        self.addButton.clicked.connect(self.runAddDialog)
+        # self.addButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
         self.formatOption = QComboBox(self)
-        leftSideLayout.addWidget(self.imgLabel)
-        leftSideLayout.addWidget(self.addButton)
-        leftSideLayout.addWidget(self.formatOption)
+
+        leftLayout.addWidget(self.imgLabel)
+        leftLayout.addWidget(self.addButton)
+        leftLayout.addWidget(self.formatOption)
+        leftLayout.addStretch()
         # Hide button (API) and combobox (local)
         self.addButton.hide()
         self.formatOption.hide()
 
         # Right side
-        self.collectionEntryGroupBox = QGroupBox()
-        self.collectionEntryGroupBox.setStyleSheet("""
-            QGroupBox::title {
-                font-size: 41px;                                    
-                font-weight: bold;
-            }
-            QGroupBox {
-                font-size: 21px;
-            }
-        """)
+        rightLayout = QVBoxLayout()
 
-        self.typeLabel = QLabel(self.collectionEntryGroupBox)
-        self.releaseDateLabel = QLabel(self.collectionEntryGroupBox)
-        self.genreLabel = QLabel("Genres", self.collectionEntryGroupBox)
-        self.genresListLabel = QLabel('', self.genreLabel)
+        self.artistTitleLabel = QLabel(self)
+        self.artistTitleLabel.setStyleSheet("font-size: 20px; font-weight: bold;")
+        self.artistTitleLabel.setAlignment(Qt.AlignLeft)
 
-        collectionEntryLayout = QVBoxLayout(self.collectionEntryGroupBox)
-        collectionEntryLayout.addWidget(self.typeLabel)
-        collectionEntryLayout.addWidget(self.releaseDateLabel)
-        collectionEntryLayout.addWidget(self.genreLabel)
-        collectionEntryLayout.addWidget(self.genresListLabel)     
+        self.typeLabel = QLabel(self)
+        self.typeLabel.setStyleSheet("font-size: 15px;")
+        self.typeLabel.setAlignment(Qt.AlignLeft)
+
+        self.releaseDateLabel = QLabel(self)
+        self.releaseDateLabel.setAlignment(Qt.AlignLeft)
+        self.genreLabel = QLabel(self)
+        self.genreLabel.setAlignment(Qt.AlignLeft)
+
+        self.trackListWidget = QListWidget(self)
+        self.trackListWidget.setMaximumHeight(300)
+
+        rightLayout.addWidget(self.artistTitleLabel)
+        rightLayout.addWidget(self.typeLabel)
+        rightLayout.addWidget(self.releaseDateLabel)
+        rightLayout.addWidget(self.genreLabel)
+        rightLayout.addWidget(self.trackListWidget)
+        rightLayout.addStretch()     
     
-        layout.addLayout(leftSideLayout)
-        layout.addWidget(self.collectionEntryGroupBox)
+        mainLayout.addLayout(leftLayout)
+        mainLayout.addLayout(rightLayout)
+        mainLayout.setContentsMargins(20, 20, 20, 20)
 
-        
+        # Dialog for creating collection entry
+        self.addDialog = QDialog(self)
+        self.addDialog.setModal(True)
+        self.addDialog.setWindowTitle('Add to collection')
+        self.addDialog.setFixedWidth(200)
+        addDialogLayout = QVBoxLayout(self.addDialog)
+        # Format Choice
+        formatLabel = QLabel('Choose a format')
+        self.formatDropdown = QComboBox(self.addDialog)
+        # Tracklist information
+        tracklistChangeInfo = QLabel('You may change the tracklist later')
+        # Buttons
+        buttonLayout = QHBoxLayout()
+        addDialogAddButton = QPushButton('Add')
+        addDialogAddButton.setDefault(True)
+        addDialogCancelButton = QPushButton('Cancel')
+        addDialogAddButton.clicked.connect(self.checkFormat)
+        addDialogCancelButton.clicked.connect(self.addDialog.reject)
+        buttonLayout.addWidget(addDialogAddButton)
+        buttonLayout.addWidget(addDialogCancelButton)
+
+        addDialogLayout.addWidget(formatLabel)
+        addDialogLayout.addWidget(self.formatDropdown)
+        addDialogLayout.addWidget(tracklistChangeInfo)
+        addDialogLayout.addLayout(buttonLayout)
+       
     def populateFromAPI(self, releaseGroupMBID):
         self.addButton.show()
+        self.tempCollectionEntry.clear()
 
-        result = getReleaseGroupByID(
-            id=releaseGroupMBID,
-            includes=['artists', 'releases', 'media']
-        )
-        releaseGroup = result.get('release-group')
+        releaseGroupResponse = lookupReleaseGroupDict(releaseGroupMBID, 'genres+artists') 
+        if releaseGroupResponse[0] == 200:
+            result = releaseGroupResponse[1]
+            # Get artist credit phrase and individual artist list
+            self.tempCollectionEntry['artist_credit_phrase'] = ''
+            self.artists = []
+            for artist in result.get('artist-credit',[]):
+                name = artist.get('name')
+                joinphrase = artist.get('joinphrase')
+                self.tempCollectionEntry['artist_credit_phrase'] += name + joinphrase
 
-        self.artistCredit = releaseGroup.get('artist-credit-phrase', '')
-        self.title = releaseGroup.get('title', '')
-        groupBoxTitle = self.artistCredit
-        if self.artistCredit and self.title:
-            groupBoxTitle += ' - '
-        groupBoxTitle += self.title
-        self.collectionEntryGroupBox.setTitle(groupBoxTitle)
+                artistDict = artist.get('artist')
+                self.artists.append(artistDict)
 
-        self.typeLabel.setText(releaseGroup.get('type', ''))
-        self.releaseDateLabel.setText(releaseGroup.get('first-release-date', ''))
+            self.tempCollectionEntry['release_group_mbid'] = result.get('id')
+            self.tempCollectionEntry['title'] = result.get('title')
+            self.tempCollectionEntry['type'] = result.get('primary-type')
+            self.tempCollectionEntry['release_date'] = result.get('first-release-date')
 
-        # Get genres
-        genreRelGroup = lookupReleaseGroupDict(releaseGroupMBID, 'genres')
-        if genreRelGroup[0] == 200:
-            genres = genreRelGroup[1].get('genres',[])
-            self.sortedGenres = sorted(genres, key=lambda a: a['count'], reverse=True)
+            genres = result.get('genres', [])
+            if genres:
+                self.sortedGenres = sorted(genres, key=lambda a: a['count'], reverse=True)
+            else:
+                self.sortedGenres = []
         else:
-            self.sortedGenres = []
-
-        if self.sortedGenres:
-            genreList = ''
-            self.genreLabel.show()
-            iterTimes = min(len(self.sortedGenres), 5)
-            for i in range(iterTimes):
-                genreList += self.sortedGenres[i]['name'].capitalize()
-                if i < iterTimes - 1:
-                    genreList += ', '
-            self.genresListLabel.setText(genreList)
-        else:
-            self.genreLabel.hide()
-            
-        # Get artists
-        self.artists = []
-        credit = releaseGroup.get('artist-credit', [])
-        for artist in credit:
-            if not isinstance(artist, str):
-                self.artists.append(artist)
-
-        # Get formats
-        releaseCount = releaseGroup.get('release-count',0)
-        releaseList = releaseGroup.get('release-list',[])
-        self.formats = self.getFormats(releaseGroupMBID, releaseCount, releaseList)
-
+            # handle error
+            # self.collectionEntryGroupBox.setTitle(releaseGroupResponse[1])
+            return
+        
         # Get front cover
         coverResponse = getReleaseGroupFrontCoverData(releaseGroupMBID,'s')
         requestStatusCode = coverResponse[0]
         requestContent = coverResponse[1]
         if requestStatusCode == 200:
-            self.imgData = requestContent
-            pixmap = QPixmap()
-            pixmap.loadFromData(requestContent)
-            self.imgLabel.setPixmap(pixmap)
+            self.tempCollectionEntry['cover'] = QByteArray(requestContent)
         else:
-            self.imgLabel.setText(requestContent)
+            self.tempCollectionEntry['cover'] = None
 
-        # self.tempFillPage()
+        # Get formats and tracks
+        formatsTracksTuple = self.getFormatsAndTracks(releaseGroupMBID)
+        self.formats = formatsTracksTuple[0]
+        self.tracks = formatsTracksTuple[1]
 
-    def getFormats(self, releaseGroupMBID, totalReleaseCount, firstReleaseList):
+        self.fillWidget()
+
+    def getFormatsAndTracks(self, releaseGroupMBID):
         formats = set()
-        releaseList = firstReleaseList
+        tracks = []
 
-        if totalReleaseCount > 25:
-            for offset in range(25, totalReleaseCount, 25):
+        releasesPerRequest = 100
+        
+        result = browseReleases(
+            release_group=releaseGroupMBID,
+            limit=releasesPerRequest,
+            includes = ['media', 'recordings']
+        )
+
+        releaseList = result.get('release-list',[])
+        releaseCount = result.get('release-count')
+
+        if releaseCount > releasesPerRequest:
+            for offset in range(releasesPerRequest, releaseCount, releasesPerRequest):
                 result = browseReleases(
                     release_group=releaseGroupMBID,
+                    limit=releasesPerRequest,
                     offset=offset,
                     includes='media'
-                )
-                releaseList.extend(result.get('release-list',[]))
+            )
+            releaseList.extend(result.get('release-list',[]))
 
         for release in releaseList:
             for medium in release.get('medium-list', []):
@@ -155,19 +192,247 @@ class ReleaseGroupCardPage(QWidget):
                 if mediaformat:
                     formats.add(mediaformat)
 
-        return formats
+                if not tracks:
+                    trackList = medium.get('track-list', [])
+                    for track in trackList:
+                        recording = track.get('recording',{})
+                        if recording:
+                            tracks.append(
+                                {
+                                    'number': track.get('number'),
+                                    'title': recording.get('title'),
+                                    'length': int(recording.get('length', 0))
+                                }
+                            )
+        return (formats, tracks)
 
-    def tempFillPage(self):
-        dataList = QListWidget()
+    def fillWidget(self):
+        if self.tempCollectionEntry['cover']:
+            pixmap = QPixmap()
+            pixmap.loadFromData(self.tempCollectionEntry['cover'])
+            self.imgLabel.setPixmap(pixmap)
+            self.addButton.setFixedWidth(pixmap.width())
+            self.imgLabel.show()
+        else:
+            self.imgLabel.hide()
 
-        dataList.addItem(QListWidgetItem(f"id: {self.releaseGroupMBID}"))
-        dataList.addItem(QListWidgetItem(f"type: {self.type}"))
-        dataList.addItem(QListWidgetItem(f"title: {self.title}"))
-        dataList.addItem(QListWidgetItem(f"release date: {self.releaseDate}"))
-        dataList.addItem(QListWidgetItem(f"format list: {self.formats}"))
-        dataList.addItem(QListWidgetItem(f"artist credit: {self.artistCreditPhrase}"))
-        dataList.addItem(QListWidgetItem("artists:"))
-        for artist in self.artists:
-            dataList.addItem(QListWidgetItem(str(artist)))
+        pageTitle = (
+            self.tempCollectionEntry['artist_credit_phrase']
+            + ' - '
+            + self.tempCollectionEntry['title']
+        )
+        self.artistTitleLabel.setText(pageTitle)
 
-        self.layout.addWidget(dataList, 0, 0, 2, 2)
+        self.typeLabel.setText(self.tempCollectionEntry['type'])
+        self.releaseDateLabel.setText(self.tempCollectionEntry['release_date'])
+
+        if self.sortedGenres:
+            self.genreLabel.show()
+            genreList = ', '.join(genre['name'].capitalize() for genre in self.sortedGenres)
+            self.genreLabel.setText('Genres: ' + genreList)
+        else:
+            self.genreLabel.hide()
+
+        if self.tracks:
+            self.trackListWidget.show()
+            self.trackListWidget.clear()
+            for track in self.tracks:
+                num = track['number']
+                title = track['title']
+
+                totalLengthMS = track['length']
+                totalLengthS = totalLengthMS / 1000
+                minutes = int(totalLengthS // 60)
+                seconds = round(totalLengthS % 60)
+
+                self.trackListWidget.addItem(f"{num} {title} ({minutes}:{seconds:02})")
+        else:
+            self.trackListWidget.hide()
+
+    def runAddDialog(self):
+        self.formatDropdown.clear()
+        self.formatDropdown.addItems(self.formats)
+        if self.addDialog.exec():
+            if self.db.open():
+                self.db.transaction()
+                try:
+                    query = QSqlQuery()
+                    # Insert collection_entry record
+                    query.prepare(
+                        """INSERT INTO collection_entry(
+                            release_group_mbid,
+                            type,
+                            title,
+                            release_date,
+                            format,
+                            artist_credit_phrase,
+                            cover
+                        )
+                        VALUES(
+                            :release_group_mbid,
+                            :type,
+                            :title,
+                            :release_date,
+                            :format,
+                            :artist_credit_phrase, 
+                            :cover
+                        )"""
+                    )
+                    
+                    for key in self.tempCollectionEntry.keys():
+                        query.bindValue(f":{key}", self.tempCollectionEntry[key])
+                    if not query.exec():
+                        raise Exception(
+                            'Insert collection entry failed: ' + query.lastError().text()
+                        )
+                    collectionEntryID = query.lastInsertId()
+
+                    for artist in self.artists:
+                        artistMBID = artist['id']
+                        # Check if artist record already exists
+                        query.prepare("SELECT COUNT(*) FROM artist WHERE mbid = :mbid")
+                        query.bindValue(':mbid', artistMBID)
+                        if not query.exec():
+                            raise Exception(
+                                'Check artist failed: ' + query.lastError().text()
+                            )
+                        query.next()
+                        if query.value(0) == 0:
+                            # Insert artist record
+                            query.prepare(
+                                """INSERT OR IGNORE INTO artist (mbid, type, name)
+                                VALUES (:mbid, :type, :name)"""
+                            )
+                            query.bindValue(':mbid', artistMBID)
+                            query.bindValue(':type', artist.get('type'))
+                            query.bindValue(':name', artist.get('name'))                      
+                            if not query.exec():
+                                raise Exception(
+                                    'Insert artist failed: ' + query.lastError().text()
+                                )
+                            for genre in artist.get('genres', []):
+                                # Insert genre record if one doesn't exist
+                                query.prepare(
+                                    """INSERT OR IGNORE INTO genre (mbid, name)
+                                    VALUES (:mbid, :name)"""
+                                )
+                                genreMBID = genre['id']
+                                query.bindValue(':mbid', genreMBID)
+                                query.bindValue(':name', genre['name'])
+                                if not query.exec():
+                                    raise Exception(
+                                        'Insert genre failed: ' + query.lastError().text()
+                                    )
+                                # Insert genre link to artist
+                                query.prepare(
+                                    """INSERT INTO genre_link (genre_mbid, vote_count, artist_mbid)
+                                    VALUES (:genre_mbid, :vote_count, :artist_mbid)"""
+                                )
+                                query.bindValue(':genre_mbid', genreMBID)
+                                query.bindValue(':vote_count', genre['count'])
+                                query.bindValue(':artist_mbid', artistMBID)
+                                if not query.exec():
+                                    raise Exception(
+                                        'Insert genre_link failed: ' + query.lastError().text()
+                                    )
+                        # Insert artist link to collection_entry
+                        query.prepare(
+                            """INSERT INTO artist_entry_link (collection_entry_id, artist_mbid)
+                            VALUES (:collection_entry_id, :artist_mbid)"""
+                        )
+                        query.bindValue(':collection_entry_id', collectionEntryID)
+                        query.bindValue(':artist_mbid', artistMBID)
+                        if not query.exec():
+                            raise Exception(
+                                'Insert artist_entry_link failed: ' + query.lastError().text()
+                            )
+                    
+                    for genre in self.sortedGenres:
+                        # Insert genre record if one doesn't exist
+                        query.prepare(
+                            """INSERT OR IGNORE INTO genre (mbid, name)
+                            VALUES (:mbid, :name)"""
+                        )
+                        genreMBID = genre['id']
+                        query.bindValue(':mbid', genreMBID)
+                        query.bindValue(':name', genre['name'])
+                        if not query.exec():
+                            raise Exception(
+                                'Insert genre failed: ' + query.lastError().text()
+                            )
+                        # Insert genre link to collection_entry
+                        query.prepare(
+                            """INSERT INTO genre_link (genre_mbid, vote_count, collection_entry_id)
+                            VALUES (:genre_mbid, :vote_count, :collection_entry_id)"""
+                        )
+                        query.bindValue(':genre_mbid', genreMBID)
+                        query.bindValue(':vote_count', genre['count'])
+                        query.bindValue(':collection_entry_id', collectionEntryID)
+                        if not query.exec():
+                            raise Exception(
+                                'Insert genre_link failed: ' + query.lastError().text()
+                            )
+                        
+                    for track in self.tracks:
+                        # Insert track record
+                        query.prepare(
+                            """INSERT INTO track (number, title, length, collection_entry_id)
+                            VALUES (:number, :title, :length, :collection_entry_id)"""
+                        )
+                        query.bindValue(':number', track['number'])
+                        query.bindValue(':title', track['title'])
+                        query.bindValue(':length', track['length'])
+                        query.bindValue(':collection_entry_id', collectionEntryID)
+                        if not query.exec():
+                            raise Exception(
+                                'Insert track failed: ' + query.lastError().text()
+                            )
+                        
+                    self.db.commit()
+                    print('Album inserted')
+                except Exception as e:
+                    print('Error:', e)
+                    self.db.rollback()
+                finally:
+                    self.db.close()
+            else:
+                print("Failed to open database: ", self.db.lastError().text())
+
+            self.addButton.hide()
+
+    def checkFormat(self):
+        self.tempCollectionEntry['format'] = self.formatDropdown.currentText()
+        if self.db.open():
+            try:
+                query = QSqlQuery()
+                query.prepare(
+                    """SELECT COUNT(*) FROM collection_entry
+                    WHERE release_group_mbid = :mbid AND format = :format"""
+                )
+                query.bindValue(':mbid', self.tempCollectionEntry['release_group_mbid'])
+                query.bindValue(':format', self.tempCollectionEntry['format'])
+                if not query.exec():
+                    raise Exception(
+                        'Check format failed: ' + query.lastError().text()
+                    )
+                query.next()
+                if query.value(0) != 0:
+                    ret = QMessageBox.warning(
+                        self.addDialog,
+                        'Duplicate format',
+                        (
+                            f"You already have {self.tempCollectionEntry['title']} in the "
+                            f"{self.tempCollectionEntry['format']} format in your collection"
+                            "\nWould you like to add another one?"
+                        ),
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    if ret == QMessageBox.No:
+                        return
+            except Exception as e:
+                print('Error:', e)        
+        else:
+            print("Failed to open database: ", self.db.lastError().text())
+
+        self.addDialog.accept()
