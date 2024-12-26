@@ -43,14 +43,22 @@ class MainWindow(QMainWindow):
         self.toolbar = QToolBar(self)
         self.addToolBar(self.toolbar)
         # Home Action
-        self.homeAction = QAction(QIcon.fromTheme('go-home'), 'Back', self.toolbar)
+        self.homeAction = QAction(
+            QIcon.fromTheme(QIcon.ThemeIcon.GoHome),
+            'Back',
+            self.toolbar
+        )
         self.homeAction.triggered.connect(
             lambda checked, page=self.homePage: self.navigateToPage(page)
         )
         self.homeAction.setDisabled(True)
         self.toolbar.addAction(self.homeAction)
         # Back Button
-        self.backAction = QAction(QIcon.fromTheme('go-previous'), 'Back', self.toolbar)
+        self.backAction = QAction(
+            QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious),
+            'Back',
+            self.toolbar
+        )
         self.backAction.setShortcut('Alt+Left')
         self.backAction.triggered.connect(self.goBack)
         self.backAction.setDisabled(True)

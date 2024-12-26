@@ -11,7 +11,8 @@ createStatements = [
         release_date TEXT,
         format TEXT NOT NULL,
         artist_credit_phrase TEXT NOT NULL,
-        cover BLOB
+        cover BLOB,
+        added_at TEXT DEFAULT CURRENT_TIMESTAMP
     );""",
 
     """CREATE TABLE IF NOT EXISTS artist(
