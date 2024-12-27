@@ -19,7 +19,7 @@ class MainWindow(QMainWindow):
         # Initialize main window parameters
         self.app = app
         self.setWindowTitle('MKPS')
-        self.resize(QSize(600, 400))
+        self.resize(QSize(1280, 720))
         self.setStatusBar(QStatusBar(self))
 
         # Initialize central QStackedWidget
