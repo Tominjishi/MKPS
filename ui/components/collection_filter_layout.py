@@ -20,19 +20,16 @@ class FilterLayout(QVBoxLayout):
         filterArea.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
         areaWidget = QWidget()  # widget for scrollarea
-        self.filterLayout = QVBoxLayout(areaWidget)
+        self.checkBoxLayout = QVBoxLayout(areaWidget)
         
-        selectAll = QCheckBox('Select all')
-        selectAll.setChecked(True)
-        selectAll.toggled.connect(self.filterAll)
-        self.filterLayout.addWidget(selectAll)
-
-        self.filterButtons = QButtonGroup()
-        self.filterButtons.setExclusive(False)
+        self.checkBoxGroup = QButtonGroup(self)
+        self.checkBoxGroup.setExclusive(False)
 
         filterArea.setWidget(areaWidget)
         self.addWidget(filterArea)
 
-    def filterAll(self, checked):
-        for button in self.filterButtons.buttons():
-            button.setChecked(checked)
+    def uncheckAll(self):
+        self.checkBoxGroup.blockSignals(True)
+        for button in self.checkBoxGroup.buttons():
+            button.setChecked(False)
+        self.checkBoxGroup.blockSignals(False)
