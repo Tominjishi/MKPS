@@ -32,6 +32,8 @@ class ReleaseGroupCardPage(QWidget):
         #     "cover": None,
         # }
         self.tempCollectionEntry = {}
+        self.tracks = []
+        self.formatOptionMapping = []
 
         mainLayout = QHBoxLayout(self)
 
@@ -47,6 +49,7 @@ class ReleaseGroupCardPage(QWidget):
         # self.addButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self.formatOption = QComboBox(self)
+        self.formatOption.currentIndexChanged.connect(self.switchFormat)
 
         leftLayout.addWidget(self.imgLabel)
         leftLayout.addWidget(self.addButton)
@@ -73,7 +76,7 @@ class ReleaseGroupCardPage(QWidget):
         self.genreLabel.setAlignment(Qt.AlignLeft)
 
         self.trackListWidget = QListWidget(self)
-        self.trackListWidget.setMaximumHeight(300)
+        # self.trackListWidget.setMaximumHeight(300)
 
         rightLayout.addWidget(self.artistTitleLabel)
         rightLayout.addWidget(self.typeLabel)
@@ -114,7 +117,9 @@ class ReleaseGroupCardPage(QWidget):
        
     def populateFromAPI(self, releaseGroupMBID):
         self.addButton.show()
+        self.formatOption.hide()
         self.tempCollectionEntry.clear()
+        self.tracks.clear()
 
         releaseGroupResponse = lookupReleaseGroupDict(releaseGroupMBID, 'genres+artists') 
         if releaseGroupResponse[0] == 200:
@@ -212,6 +217,7 @@ class ReleaseGroupCardPage(QWidget):
             pixmap.loadFromData(self.tempCollectionEntry['cover'])
             self.imgLabel.setPixmap(pixmap)
             self.addButton.setFixedWidth(pixmap.width())
+            self.formatOption.setFixedWidth(pixmap.width())
             self.imgLabel.show()
         else:
             self.imgLabel.hide()
@@ -436,3 +442,101 @@ class ReleaseGroupCardPage(QWidget):
             print("Failed to open database: ", self.db.lastError().text())
 
         self.addDialog.accept()
+
+    def populateFromDatabase(self, collectionEntry):
+        self.addButton.hide()
+        self.formatOption.show()
+        self.formatOption.clear()
+        self.formatOptionMapping.clear()
+        self.tempCollectionEntry.clear()
+        self.tracks.clear()
+
+        self.tempCollectionEntry['release_group_mbid'] = collectionEntry['release_group_mbid']
+
+        if self.db.open():
+            try:
+                query = QSqlQuery()
+                query.prepare(
+                    """SELECT id, format
+                    FROM collection_entry
+                    WHERE release_group_mbid = :mbid"""
+                )
+                query.bindValue(':mbid', self.tempCollectionEntry['release_group_mbid'])
+                if not query.exec():
+                    raise Exception(
+                        'Format fetch failed: : ' + query.lastError().text()
+                    )
+                
+                self.formatOption.blockSignals(True)
+                while query.next():
+                    self.formatOption.addItem(query.value('format'))
+                    self.formatOptionMapping.append(query.value('id'))
+                self.formatOption.blockSignals(False)
+
+                query.prepare(
+                    """SELECT number, title, length
+                    FROM track
+                    WHERE collection_entry_id = :id"""
+                )
+                query.bindValue(':id', self.formatOptionMapping[0])
+                if not query.exec():
+                    raise Exception(
+                        'Track fetch failed: : ' + query.lastError().text()
+                    )
+                self.trackListWidget.show()
+                while query.next():
+                    self.tracks.append(
+                        {
+                            'number': query.value('number'),
+                            'title': query.value('title'),
+                            'length': query.value('length')
+                        }
+                    )
+            except Exception as e:
+                print('Error:', e)
+                self.trackListWidget.hide()
+        else:
+            print("Failed to open database: ", self.db.lastError().text())
+            self.trackListWidget.hide()
+
+        self.tempCollectionEntry['id'] = collectionEntry['id']
+        self.tempCollectionEntry['cover'] = collectionEntry['cover']
+        self.tempCollectionEntry['artist_credit_phrase'] = collectionEntry['artist_credit_phrase']
+        self.tempCollectionEntry['title'] = collectionEntry['title']
+        self.tempCollectionEntry['type'] = collectionEntry['type'][0]
+        self.tempCollectionEntry['release_date'] = collectionEntry['release_date']
+        self.sortedGenres = [{'name': genre} for genre in collectionEntry['genres']]
+
+        self.fillWidget()
+
+    def switchFormat(self, index):
+        colEntryID = self.formatOptionMapping[index]
+        self.tracks.clear()
+        if self.db.open():
+            try:
+                query = QSqlQuery()
+                query.prepare(
+                    """SELECT number, title, length
+                    FROM track
+                    WHERE collection_entry_id = :id"""
+                )
+                query.bindValue(':id', colEntryID)
+                if not query.exec():
+                    raise Exception(
+                        'Track fetch failed: : ' + query.lastError().text()
+                    )
+                self.trackListWidget.show()
+                while query.next():
+                    self.tracks.append(
+                        {
+                            'number': query.value('number'),
+                            'title': query.value('title'),
+                            'length': query.value('length')
+                        }
+                    )
+            except Exception as e:
+                print('Error:', e)
+                self.trackListWidget.hide() 
+        else:
+            print("Failed to open database: ", self.db.lastError().text())
+            self.trackListWidget.hide()
