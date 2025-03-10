@@ -8,7 +8,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtCore import QSize
 
 from ui.pages.home_page import HomePage
-from ui.pages.artist_search_page import ArtistSearchPage
+from ui.pages.search_artists_page import SearchArtistsPage
 from ui.pages.release_group_list_page import ReleaseGroupListPage
 from ui.pages.release_group_card_page import ReleaseGroupCardPage
 from ui.pages.collection_page import CollectionPage
@@ -27,56 +27,44 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.pages)
         self.history_stack = []
 
-        # Initialize dynamic pages and add to stackedwidget
-        self.homePage = HomePage(self)
-        self.artistSearchPage = ArtistSearchPage(self)
-        self.releaseGroupListPage = ReleaseGroupListPage(self)
-        self.releaseGroupCardPage = ReleaseGroupCardPage(self)
-        self.collectionPage = CollectionPage(self)
-        self.pages.addWidget(self.homePage)
-        self.pages.addWidget(self.artistSearchPage)
-        self.pages.addWidget(self.releaseGroupListPage)
-        self.pages.addWidget(self.releaseGroupCardPage)
-        self.pages.addWidget(self.collectionPage)
+        # Initialize dynamic pages and add to StackedWidget
+        self.home_page = HomePage(self)
+        self.search_artists_page = SearchArtistsPage(self)
+        self.release_group_list_page = ReleaseGroupListPage(self)
+        self.release_group_card_page = ReleaseGroupCardPage(self)
+        self.collection_page = CollectionPage(self)
+        self.pages.addWidget(self.home_page)
+        self.pages.addWidget(self.search_artists_page)
+        self.pages.addWidget(self.release_group_list_page)
+        self.pages.addWidget(self.release_group_card_page)
+        self.pages.addWidget(self.collection_page)
         
         # Initialize ToolBar
         self.toolbar = QToolBar(self)
         self.addToolBar(self.toolbar)
-        # Home Action
-        self.homeAction = QAction(
-            QIcon.fromTheme(QIcon.ThemeIcon.GoHome),
-            'Back',
-            self.toolbar
-        )
-        self.homeAction.triggered.connect(
-            lambda checked, page=self.homePage: self.navigateToPage(page)
-        )
-        self.homeAction.setDisabled(True)
-        self.toolbar.addAction(self.homeAction)
+        # Home Button
+        self.home_action = QAction(QIcon.fromTheme(QIcon.ThemeIcon.GoHome), 'Home', self.toolbar)
+        self.home_action.triggered.connect(lambda checked, page=self.home_page: self.navigate_to_page(page))
+        self.home_action.setDisabled(True)
+        self.toolbar.addAction(self.home_action)
         # Back Button
-        self.backAction = QAction(
-            QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious),
-            'Back',
-            self.toolbar
-        )
-        self.backAction.setShortcut('Alt+Left')
-        self.backAction.triggered.connect(self.goBack)
-        self.backAction.setDisabled(True)
-        self.toolbar.addAction(self.backAction)
+        self.back_action = QAction(QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious), 'Back', self.toolbar)
+        self.back_action.setShortcut('Alt+Left')
+        self.back_action.triggered.connect(self.go_back)
+        self.back_action.setDisabled(True)
+        self.toolbar.addAction(self.back_action)
 
         # Signal for page changes
-        self.pages.currentChanged.connect(self.pageChangeCheck)
+        self.pages.currentChanged.connect(self.page_change_check)
 
-    def navigateToPage(self, page):
-        currIndex = self.pages.currentIndex()
-        self.history_stack.append(currIndex)
+    def navigate_to_page(self, page):
+        self.history_stack.append(self.pages.currentIndex())
         self.pages.setCurrentWidget(page)
-        self.backAction.setEnabled(True)
+        self.back_action.setEnabled(True)
 
-    def goBack(self):
-        previousIndex = self.history_stack.pop()
-        self.pages.setCurrentIndex(previousIndex)
-        self.backAction.setDisabled(not self.history_stack)
+    def go_back(self):
+        self.pages.setCurrentIndex(self.history_stack.pop())
+        self.back_action.setDisabled(not self.history_stack)
 
-    def pageChangeCheck(self):
-        self.homeAction.setDisabled(self.pages.currentWidget() == self.homePage)
+    def page_change_check(self):
+        self.home_action.setDisabled(self.pages.currentWidget() == self.home_page)

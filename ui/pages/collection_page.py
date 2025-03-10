@@ -10,259 +10,224 @@ from PySide6.QtWidgets import(
 )
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtSql import QSqlDatabase, QSqlQuery
 from ui.components.collection_filter_layout import FilterLayout
+from data.release import Release
 
 class CollectionPage(QWidget):
     TABLE_ICON_SIZE = 50
 
-    def __init__(self, mainWindow):
-        super().__init__(mainWindow)
-        self.mainWindow = mainWindow
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.main_window = main_window
 
-        self.timeStampOrder = None
+        self.time_stamp_descending = True
         self.entries = []
         # sets of active filters
-        self.activeFilters = {
+        self.active_filters = {
             'artists': set(),
             'genres': set(),
             'type': set(),
-            'formats': set(),
+            'format': set(),
         }
 
-        mainLayout = QHBoxLayout(self)
+        main_layout = QHBoxLayout(self)
 
-        self.collectionTable = QTableWidget(self)
-        self.collectionTable.setColumnCount(9)
-        self.collectionTable.setHorizontalHeaderLabels(
+        self.collection_table = QTableWidget(self)
+        self.collection_table.setColumnCount(9)
+        self.collection_table.setHorizontalHeaderLabels(
             ['Cover', 'Artist', 'Title', 'Type', 'Release Date', 'Added at', '']
         )
 
-        header = self.collectionTable.horizontalHeader()
+        header = self.collection_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         # cover column
-        self.collectionTable.setIconSize(QSize(self.TABLE_ICON_SIZE, self.TABLE_ICON_SIZE))
-        self.collectionTable.verticalHeader().setDefaultSectionSize(self.TABLE_ICON_SIZE)
+        self.collection_table.setIconSize(QSize(self.TABLE_ICON_SIZE, self.TABLE_ICON_SIZE))
+        self.collection_table.verticalHeader().setDefaultSectionSize(self.TABLE_ICON_SIZE)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         # button column
-        self.collectionTable.setColumnWidth(6, 150)
+        self.collection_table.setColumnWidth(6, 150)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
 
 
-        self.collectionTable.setSortingEnabled(True)
-        self.collectionTable.setColumnHidden(7, True)
-        self.collectionTable.setColumnHidden(8, True)
-        self.collectionTable.horizontalHeader().sectionClicked.connect(self.sortByTimestamp)
+        self.collection_table.setSortingEnabled(True)
+        self.collection_table.setColumnHidden(7, True)
+        self.collection_table.setColumnHidden(8, True)
+        self.collection_table.horizontalHeader().sectionClicked.connect(self.sort_by_timestamp)
 
         # filters
-        filterLayout = QVBoxLayout()
-        clearFilters = QPushButton('Clear filters', self)
-        clearFilters.clicked.connect(self.clearFilters)
-        filterLayout.addWidget(clearFilters)
+        filter_layout = QVBoxLayout()
+        clear_filters_button = QPushButton('Clear filters', self)
+        clear_filters_button.clicked.connect(self.clear_filters)
+        filter_layout.addWidget(clear_filters_button)
         # artist filters
-        self.filterBoxes = {}
-        for fieldName in self.activeFilters.keys():
-            self.filterBoxes[fieldName] = FilterLayout(fieldName.capitalize())
-            self.filterBoxes[fieldName].checkBoxGroup.buttonToggled.connect(
-                lambda button, checked, col=fieldName: self.filterTable(button, checked, col)
+        self.filter_boxes = {}
+        for field_name in self.active_filters.keys():
+            self.filter_boxes[field_name] = FilterLayout(field_name.capitalize())
+            self.filter_boxes[field_name].check_box_group.buttonToggled.connect(
+                lambda button, checked, col=field_name: self.filter_table(button, checked, col)
             )
-            self.filterBoxes[fieldName].searchBar.textChanged.connect(
-                lambda text, col=fieldName: self.updateFilterBox(text, col)
+            self.filter_boxes[field_name].search_bar.textChanged.connect(
+                lambda text, col=field_name: self.update_filter_box(text, col)
             )
-            filterLayout.addLayout(self.filterBoxes[fieldName])
+            filter_layout.addLayout(self.filter_boxes[field_name])
         # self.artistFilters = FilterLayout('Artists')
         # self.artistFilters.checkBoxGroup.buttonToggled.connect(
         #     lambda button, checked, col='artists': self.filterTable(button, checked, col)
         # )
-        # filterLayout.addLayout(self.artistFilters)
+        # filter_layout.addLayout(self.artistFilters)
         # # genre filters
         # self.genreFilters = FilterLayout('Genres')
         # self.genreFilters.checkBoxGroup.buttonToggled.connect(
         #     lambda button, checked, col='genres': self.filterTable(button, checked, col)
         # )
-        # filterLayout.addLayout(self.genreFilters)
+        # filter_layout.addLayout(self.genreFilters)
 
-        filterLayout.addStretch()
+        filter_layout.addStretch()
 
-        mainLayout.addWidget(self.collectionTable)
-        mainLayout.addLayout(filterLayout)
-        mainLayout.setStretchFactor(self.collectionTable, 3)
-        mainLayout.setStretchFactor(filterLayout, 1)
+        main_layout.addWidget(self.collection_table)
+        main_layout.addLayout(filter_layout)
+        main_layout.setStretchFactor(self.collection_table, 3)
+        main_layout.setStretchFactor(filter_layout, 1)
 
-        db = QSqlDatabase().database()
-        if db.open():
-            try:
-                query = QSqlQuery(
-                    """SELECT
-                        collection_entry.id,
-                        collection_entry.cover,
-                        collection_entry.artist_credit_phrase,
-                        collection_entry.title,
-                        collection_entry.type,
-                        collection_entry.release_date,
-                        collection_entry.added_at,
-                        collection_entry.release_group_mbid,
-                        GROUP_CONCAT(DISTINCT collection_entry.format) AS formats,
-                        GROUP_CONCAT(DISTINCT artist.name) AS artist_names,
-                        COALESCE(GROUP_CONCAT(DISTINCT genre.name), 'Unknown') AS genre_names
-                    FROM collection_entry
-                    JOIN artist_entry_link ON artist_entry_link.collection_entry_id = collection_entry.id
-                    JOIN artist ON artist_entry_link.artist_mbid = artist.mbid
-                    LEFT JOIN genre_link ON genre_link.collection_entry_id = collection_entry.id
-                    LEFT JOIN genre ON genre_link.genre_mbid = genre.mbid
-                    GROUP BY collection_entry.release_group_mbid
-                    ORDER BY added_at"""
-                )
-                if not query.exec():
-                    raise Exception(
-                        'Collection entry fetch failed: ' + query.lastError().text()
-                    )
-                query.last()
-                rowCount = query.at() + 1
-                self.collectionTable.setRowCount(rowCount)
+        self.fill_table()
 
-                # unique sets for filters
-                filters = {
-                    'artists': set(),
-                    'genres': set(),
-                    'type': set(),
-                    'formats': set(),
-                }
-                for row in range(rowCount):
-                    addedAtDateTime = query.value('collection_entry.added_at')
-                    collectionEntry = {
-                        'id': query.value('collection_entry.id'),
-                        'cover': query.value('collection_entry.cover'),
-                        'artist_credit_phrase': query.value('collection_entry.artist_credit_phrase'),
-                        'title': query.value('collection_entry.title'),
-                        'type': [query.value('collection_entry.type')],
-                        'release_date': query.value('collection_entry.release_date'),
-                        'added_at': (
-                            addedAtDateTime[8:10]   # Day
-                            + addedAtDateTime[4:8]  # -Month-
-                            + addedAtDateTime[:4]   # Year
-                        ),
-                        'release_group_mbid': query.value('collection_entry.release_group_mbid'),
-                        'artists': query.value('artist_names').split(','),
-                        'genres': query.value('genre_names').split(','),
-                        'formats': query.value('formats').split(','),
-                    }
-                    self.entries.append(collectionEntry)
+    def fill_table(self):
+        self.entries = Release.get_all()
+        if self.entries:
+            self.collection_table.setRowCount(len(self.entries))
 
-                    for artist in collectionEntry['artists']:
-                        filters['artists'].add(artist)
-                    for genre in collectionEntry['genres']:
-                        filters['genres'].add(genre)
-                    for format in collectionEntry['formats']:
-                        filters['formats'].add(format)
-                    filters['type'].add(collectionEntry['type'][0])
+            # unique sets for filters
+            filters = {
+                'artists': set(),
+                'genres': set(),
+                'type': set(),
+                'format': set(),
+            }
 
-                    # ui add row
-                    coverItem = QTableWidgetItem()
-                    if collectionEntry['cover']:
-                        coverPixmap = QPixmap()
-                        coverPixmap.loadFromData(collectionEntry['cover'])
-                        coverItem.setIcon(coverPixmap)
-                    else:
-                        coverItem.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.AudioCard))
-                    coverItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            for row, entry in enumerate(self.entries):
+                for artist in entry.artists:
+                    filters['artists'].add(artist)
+                for genre in entry.genres:
+                    filters['genres'].add(genre)
+                filters['type'].add(entry.type)
+                filters['format'].add(entry.format)
 
-                    artistItem = QTableWidgetItem(collectionEntry['artist_credit_phrase'])
-                    artistItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                # add row to table
+                self.add_row(row, entry)
 
-                    titleItem = QTableWidgetItem(collectionEntry['title'])
-                    titleItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            # fill artist filter checkboxes
+            for field_name, filter_set in filters.items():
+                self.add_checkboxes(field_name, filter_set)
 
-                    typeItem = QTableWidgetItem(collectionEntry['type'][0])
-                    typeItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
-                    releaseDateItem = QTableWidgetItem(collectionEntry['release_date'])
-                    releaseDateItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
-
-                    addedAtItem = QTableWidgetItem(collectionEntry['added_at'])
-                    addedAtItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
-
-                    selectButton = QPushButton('Select')
-                    selectButton.clicked.connect(
-                        lambda checked, a=collectionEntry:self.openCard(a)
-                    )
-
-                    self.collectionTable.setItem(row, 0, coverItem)
-                    self.collectionTable.setItem(row, 1, artistItem)
-                    self.collectionTable.setItem(row, 2, titleItem)
-                    self.collectionTable.setItem(row, 3, typeItem)
-                    self.collectionTable.setItem(row, 4, releaseDateItem)
-                    self.collectionTable.setItem(row, 5, addedAtItem)
-                    self.collectionTable.setItem(row, 6, QTableWidgetItem())
-                    self.collectionTable.setCellWidget(row, 6, selectButton)
-                    self.collectionTable.setItem(row, 7, QTableWidgetItem(addedAtDateTime))
-                    self.collectionTable.setItem(row, 8, QTableWidgetItem(str(row)))
-                    row += 1
-                    query.previous()
-                    
-                # fill artist filter checkboxes
-                for fieldName, filterSet in filters.items():
-                    self.addCheckboxes(fieldName, filterSet)
-
-            except Exception as e:
-                print('Error:', e)
-                return
+    def add_row(self, row, entry):
+        cover_item = QTableWidgetItem()
+        if entry.cover:
+            cover_pixmap = QPixmap()
+            cover_pixmap.loadFromData(entry.cover)
+            cover_item.setIcon(cover_pixmap)
         else:
-            print("Failed to open database: ", self.db.lastError().text())
+            cover_item.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.AudioVolumeHigh))
+        cover_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
-    def sortByTimestamp(self, column):
+        artist_item = QTableWidgetItem(entry.artist_credit_phrase)
+        artist_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+
+        title_item = QTableWidgetItem(entry.title)
+        title_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+
+        type_item = QTableWidgetItem(entry.type)
+        type_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+
+        release_date_item = QTableWidgetItem(entry.release_date)
+        release_date_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+
+        added_at_date = entry.added_at[:4] + entry.added_at[4:8] + entry.added_at[8:10]
+        added_at_item = QTableWidgetItem(added_at_date)
+        added_at_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        added_at_item.setToolTip(entry.added_at)
+
+        select_button = QPushButton('Select')
+        select_button.clicked.connect(
+            lambda checked, a=entry: self.open_card(a)
+        )
+
+        self.collection_table.setItem(row, 0, cover_item)
+        self.collection_table.setItem(row, 1, artist_item)
+        self.collection_table.setItem(row, 2, title_item)
+        self.collection_table.setItem(row, 3, type_item)
+        self.collection_table.setItem(row, 4, release_date_item)
+        self.collection_table.setItem(row, 5, added_at_item)
+        self.collection_table.setItem(row, 6, QTableWidgetItem())
+        self.collection_table.setCellWidget(row, 6, select_button)
+        # Hidden "added_at" column to sort by time while only showing date
+        self.collection_table.setItem(row, 7, QTableWidgetItem(entry.added_at))
+        self.collection_table.setItem(row, 8, QTableWidgetItem(str(row)))
+
+    def add_checkboxes(self, field_name, value_set):
+        for value in value_set:
+            check_box = QCheckBox(value)
+            self.filter_boxes[field_name].check_box_layout.addWidget(check_box)
+            self.filter_boxes[field_name].check_box_group.addButton(check_box)
+        self.filter_boxes[field_name].check_box_layout.parentWidget().adjustSize()
+        self.filter_boxes[field_name].check_box_layout.addStretch()
+
+    def sort_by_timestamp(self, column):
         if column == 5:
-            if self.timeStampOrder == 'asc':
-                self.timeStampOrder = 'desc'
-                self.collectionTable.sortItems(7, Qt.SortOrder.DescendingOrder)
+            if self.time_stamp_descending:
+                self.time_stamp_descending = False
+                self.collection_table.sortItems(7, Qt.SortOrder.AscendingOrder)
             else:
-                self.timeStampOrder = 'asc'
-                self.collectionTable.sortItems(7, Qt.SortOrder.AscendingOrder)
+                self.time_stamp_descending = True
+                self.collection_table.sortItems(7, Qt.SortOrder.DescendingOrder)
         else:
-            self.timeStampOrder = None
+            self.time_stamp_descending = None
 
-    def addCheckboxes(self, fieldName, valueSet):
-        for value in valueSet:
-            checkBox = QCheckBox(value)
-            self.filterBoxes[fieldName].checkBoxLayout.addWidget(checkBox)
-            self.filterBoxes[fieldName].checkBoxGroup.addButton(checkBox)
-        self.filterBoxes[fieldName].checkBoxLayout.parentWidget().adjustSize()
-        self.filterBoxes[fieldName].checkBoxLayout.addStretch()
+    def clear_filters(self):
+        for filter_set in self.active_filters.values():
+            filter_set.clear()
+        for filter_box in self.filter_boxes.values():
+            filter_box.uncheck_all()
+        self.show_all_rows()
 
-    def clearFilters(self):
-        for filterSet in self.activeFilters.values():
-            filterSet.clear()
-        for filterBox in self.filterBoxes.values():
-            filterBox.uncheckAll() 
-        self.showAllRows()
 
-    def showAllRows(self):
-        for row in range(self.collectionTable.rowCount()):
-            self.collectionTable.setRowHidden(row, False)
+    def show_all_rows(self):
+        for row in range(self.collection_table.rowCount()):
+            self.collection_table.setRowHidden(row, False)
 
-    def filterTable(self, button, checked, col):
+    def filter_table(self, button, checked, col):
         # add/remove from appropriate set
         if checked:
-            self.activeFilters[col].add(button.text())
+            self.active_filters[col].add(button.text())
         else:
-            self.activeFilters[col].remove(button.text())
+            self.active_filters[col].remove(button.text())
 
-        for row in range(self.collectionTable.rowCount()):
-            entry = self.entries[int(self.collectionTable.item(row, 8).text())]
-            visible = all(
-                not filterSet or any(item in filterSet for item in entry[colName])
-                for colName, filterSet in self.activeFilters.items()
-            )
-            self.collectionTable.setRowHidden(row, not visible)
+        for row in range(self.collection_table.rowCount()):
+            entry = self.entries[int(self.collection_table.item(row, 8).text())]
+            visible = True  # Default to visible
+            for col_name, filter_set in self.active_filters.items():
+                if filter_set:  # Skip if not filtered by that field
+                    entry_values = ensure_iterable_filter(getattr(entry, col_name))
+                    # if entry doesn't match any of the filters, hide the row
+                    if not any(item in filter_set for item in entry_values):
+                        visible = False
+                        break
+            self.collection_table.setRowHidden(row, not visible)
 
-    def updateFilterBox(self, text, col):
-        for checkBox in self.filterBoxes[col].checkBoxGroup.buttons():
-            if text.lower() in checkBox.text().lower():
-                checkBox.show()
+    def update_filter_box(self, text, col):
+        for check_box in self.filter_boxes[col].check_box_group.buttons():
+            if text.lower() in check_box.text().lower():
+                check_box.show()
             else:
-                checkBox.hide()
-        self.filterBoxes[col].checkBoxLayout.parentWidget().adjustSize()
+                check_box.hide()
+        self.filter_boxes[col].check_box_layout.parentWidget().adjustSize()
 
-    def openCard(self, collectionEntry):
-        self.mainWindow.releaseGroupCardPage.populateFromDatabase(collectionEntry)
-        self.mainWindow.navigateToPage(self.mainWindow.releaseGroupCardPage)
+    def open_card(self, collection_entry):
+        self.main_window.release_group_card_page.populate_from_database(collection_entry)
+        self.main_window.navigate_to_page(self.main_window.release_group_card_page)
+
+def ensure_iterable_filter(value):
+    if isinstance(value, str) or not hasattr(value, '__iter__'):
+        return [value]
+    else:
+        return value

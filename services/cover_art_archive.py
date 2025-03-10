@@ -1,20 +1,23 @@
 import requests
 
-def getReleaseGroupFrontCoverData(mbid, thumbnailSize=''):
-    thumbnailPixels = {'s': '-250', 'm': '-500', 'l': '-1200'}
-    
-    url = f"https://coverartarchive.org/release-group/{mbid}/front{thumbnailPixels.get(thumbnailSize,'')}"
+# Constants
+THUMBNAIL_PIXELS = {'s': '-250', 'm': '-500', 'l': '-1200'}
+STATUS_CODE_MAPPING = {
+    200: 'Image Retrieved Successfully',
+    400: 'Invalid MBID',
+    404: 'No Image',
+}
+
+def get_release_group_front_cover_data(mbid, thumbnail_size=''):
+    url = f"https://coverartarchive.org/release-group/{mbid}/front{THUMBNAIL_PIXELS.get(thumbnail_size,'')}"
     try:
         response = requests.get(url)
+        status_code = response.status_code
+        content = STATUS_CODE_MAPPING.get(status_code, f"Error {status_code}")
 
-        statusCodeMapping = {
-            200: response.content,
-            404: 'No Image',
-            400: 'Invalid MBID'
-        }
-        
-        statusCode = response.status_code
-        returnContent = statusCodeMapping.get(statusCode, f"Error {statusCode}")
-        return (statusCode, returnContent)
+        if status_code == 200:
+            content = response.content
+
+        return status_code, content
     except requests.RequestException as e:
-        print(e)
+        return 502, f"Request Failed: {e}"

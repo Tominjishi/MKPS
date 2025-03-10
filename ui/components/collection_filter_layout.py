@@ -11,34 +11,37 @@ from PySide6.QtWidgets import(
 from PySide6.QtCore import Qt
 
 class FilterLayout(QVBoxLayout):
+    MAX_FILTER_AREA_HEIGHT = 150
+
     def __init__(self, title=''):
         super().__init__()
-        headerBar = QHBoxLayout()
+        # Header above filter list for displaying search bar and optional title
+        header_bar = QHBoxLayout()
         if title:
-            titleLabel = QLabel(title)
-            headerBar.addWidget(titleLabel)
-        self.searchBar = QLineEdit()
-        headerBar.addWidget(self.searchBar)
+            title_label = QLabel(title)
+            header_bar.addWidget(title_label)
+        self.search_bar = QLineEdit()
+        header_bar.addWidget(self.search_bar)
         
-        filterArea = QScrollArea()
-        filterArea.setMaximumHeight(150)
-        filterArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        filterArea.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        filter_scroll_area = QScrollArea()
+        filter_scroll_area.setMaximumHeight(self.MAX_FILTER_AREA_HEIGHT)
+        filter_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        filter_scroll_area.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
-        areaWidget = QWidget()  # widget for scrollarea
-        self.checkBoxLayout = QVBoxLayout(areaWidget)
+        scroll_area_widget = QWidget()  # widget for scrollarea
+        self.check_box_layout = QVBoxLayout(scroll_area_widget)
         
-        self.checkBoxGroup = QButtonGroup(self)
-        self.checkBoxGroup.setExclusive(False)
+        self.check_box_group = QButtonGroup(self)
+        self.check_box_group.setExclusive(False)
 
-        filterArea.setWidget(areaWidget)
+        filter_scroll_area.setWidget(scroll_area_widget)
 
-        self.addLayout(headerBar)
-        self.addWidget(filterArea)
+        self.addLayout(header_bar)
+        self.addWidget(filter_scroll_area)
 
-    def uncheckAll(self):
-        self.searchBar.clear()
-        self.checkBoxGroup.blockSignals(True)
-        for button in self.checkBoxGroup.buttons():
+    def uncheck_all(self):
+        self.search_bar.clear()
+        self.check_box_group.blockSignals(True)
+        for button in self.check_box_group.buttons():
             button.setChecked(False)
-        self.checkBoxGroup.blockSignals(False)
+        self.check_box_group.blockSignals(False)

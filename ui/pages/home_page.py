@@ -1,29 +1,21 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton
 
 class HomePage(QWidget):
-    def __init__(self, mainWindow):
-        super().__init__(mainWindow)
-        self.mainWindow = mainWindow
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.main_window = main_window
         
         layout = QVBoxLayout(self)
-        artistSearchPageButton = QPushButton('Search Artists', self)
-        artistSearchPageButton.clicked.connect(self.navigateToArtistSearchPage)
-        collectionPageButton = QPushButton('My Collection', self)
-        collectionPageButton.clicked.connect(self.navigateToCollectionPage)
+        search_artists_button = QPushButton('Search Artists', self)
+        search_artists_button.clicked.connect(self.navigate_to_search_artists_page)
+        collection_button = QPushButton('My Collection', self)
+        collection_button.clicked.connect(self.navigate_to_collection_page)
 
-        layout.addWidget(artistSearchPageButton)
-        layout.addWidget(collectionPageButton)
+        layout.addWidget(search_artists_button)
+        layout.addWidget(collection_button)
 
-        testButton = QPushButton('test', self)
-        testButton.clicked.connect(self.testButtonClick)
-        layout.addWidget(testButton)
+    def navigate_to_search_artists_page(self):
+        self.main_window.navigate_to_page(self.main_window.search_artists_page)
 
-    def navigateToArtistSearchPage(self):
-        self.mainWindow.navigateToPage(self.mainWindow.artistSearchPage)
-
-    def navigateToCollectionPage(self):
-        self.mainWindow.navigateToPage(self.mainWindow.collectionPage)
-
-    def testButtonClick(self):
-        # for testing
-        return
+    def navigate_to_collection_page(self):
+        self.main_window.navigate_to_page(self.main_window.collection_page)

@@ -1,14 +1,14 @@
 import os
-from data.db_init import initDB
+from data.db_init import init_db
 
 import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtSql import QSqlDatabase
 from ui.main_window import MainWindow
 
-# Create .db file if doesn't exist
+# Create .db file if it doesn't exist
 if not os.path.exists('data/data.db'):
-    initDB()
+    init_db()
     print('Database created')
 
 app = QApplication(sys.argv)

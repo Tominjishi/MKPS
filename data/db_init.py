@@ -2,7 +2,7 @@ import sqlite3
 
 DB_FILE = "data/data.db"
 
-createStatements = [
+create_statements = [
     """CREATE TABLE IF NOT EXISTS collection_entry(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         release_group_mbid TEXT NOT NULL,
@@ -55,9 +55,9 @@ createStatements = [
     );"""
 ]
 
-def initDB():
+def init_db():
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        for statement in createStatements:
+        for statement in create_statements:
             cursor.execute(statement)
         conn.commit()
