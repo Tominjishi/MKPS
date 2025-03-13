@@ -23,6 +23,10 @@ def search_artists(query, limit=None, offset=None):
     return _musicbrainzngs_api_call(
         m.search_artists, query, limit, offset)
 
+def search_release_groups(query='', limit=None, offset=None, strict=False):
+    return _musicbrainzngs_api_call(
+        m.search_release_groups, query, limit, offset, strict)
+
 
 def browse_release_groups(artist=None, release=None, release_type=[], includes=[], limit=None, offset=None):
     return _musicbrainzngs_api_call(

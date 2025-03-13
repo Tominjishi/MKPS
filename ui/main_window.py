@@ -12,6 +12,7 @@ from ui.pages.search_artists_page import SearchArtistsPage
 from ui.pages.release_group_list_page import ReleaseGroupListPage
 from ui.pages.release_group_card_page import ReleaseGroupCardPage
 from ui.pages.collection_page import CollectionPage
+from ui.pages.search_release_groups_page import SearchReleaseGroupsPage
 
 class MainWindow(QMainWindow):
     def __init__ (self, app):
@@ -29,16 +30,18 @@ class MainWindow(QMainWindow):
 
         # Initialize dynamic pages and add to StackedWidget
         self.home_page = HomePage(self)
-        self.search_artists_page = SearchArtistsPage(self)
-        self.release_group_list_page = ReleaseGroupListPage(self)
-        self.release_group_card_page = ReleaseGroupCardPage(self)
-        self.collection_page = CollectionPage(self)
         self.pages.addWidget(self.home_page)
+        self.search_artists_page = SearchArtistsPage(self)
         self.pages.addWidget(self.search_artists_page)
+        self.release_group_list_page = ReleaseGroupListPage(self)
         self.pages.addWidget(self.release_group_list_page)
+        self.release_group_card_page = ReleaseGroupCardPage(self)
         self.pages.addWidget(self.release_group_card_page)
+        self.collection_page = CollectionPage(self)
         self.pages.addWidget(self.collection_page)
-        
+        self.search_release_groups_page = SearchReleaseGroupsPage(self)
+        self.pages.addWidget(self.search_release_groups_page)
+
         # Initialize ToolBar
         self.toolbar = QToolBar(self)
         self.addToolBar(self.toolbar)
