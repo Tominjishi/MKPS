@@ -1,8 +1,10 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTableWidgetItem, QPushButton, QLabel
-
-from ui.components.search_page import SearchPage
+# mb api
 from services.musicbrainz_api import search_release_groups
+# ui components
+from ui.components.search_page import SearchPage
+# qt
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QTableWidgetItem, QPushButton, QLabel, QMessageBox
 
 class SearchReleaseGroupsPage(SearchPage):
     def __init__(self, main_window):
@@ -50,5 +52,8 @@ class SearchReleaseGroupsPage(SearchPage):
             self.result_table.setCellWidget(i, 4, select_button)
 
     def navigate_to_release_group_card_page(self, release_group_mbid):
-        self.main_window.release_group_card_page.populate_from_api(release_group_mbid)
-        self.main_window.navigate_to_page(self.main_window.release_group_card_page)
+        success, error = self.main_window.release_group_card_page.populate_from_api(release_group_mbid)
+        if success:
+            self.main_window.navigate_to_page(self.main_window.release_group_card_page)
+        else:
+            QMessageBox.critical(self.main_window, 'Error', error)

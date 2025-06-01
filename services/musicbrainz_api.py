@@ -1,21 +1,18 @@
 import musicbrainzngs as m
 import requests
-import json
 
-m.set_useragent('MKPS(Uni project)', '0.3.0', 'https://github.com/Tominjishi/MKPS')
 MB_URL = 'https://musicbrainz.org/ws/2/'
-STATUS_CODE_MAPPING = {
-    400: 'Invalid MBID',
-    404: 'Not Found',
-    500: 'Internal Server Error',
+m.set_useragent('MKPS(Uni project)', '1.0.0', 'https://github.com/Tominjishi/MKPS')
+MB_HEADERS = {
+    'User-Agent': 'MKPS(Uni project)/1.0.0 (https://github.com/Tominjishi/MKPS)',
+    # 'Accept': 'application/json'
 }
-
 
 def _musicbrainzngs_api_call(api_function, *args):
     try:
         return api_function(*args)
     except m.MusicBrainzError as e:
-        print("musicbrainzngs error: ", e)
+        print('musicbrainzngs error: ', e)
         return None
 
 
@@ -46,23 +43,25 @@ def browse_releases(artist=None, track_artist=None, label=None, recording=None, 
 
 
 def lookup_release_group_dict(mbid, inc=''):
-    url = MB_URL + 'release-group/' + mbid + '?'
-    if inc:
-        url += 'inc=' + inc + '&'
-    url += 'fmt=json'
+    url = MB_URL + 'release-group/' + mbid
+    payload = {'inc': inc, 'fmt': 'json'}
 
     try:
-        response = requests.get(url)
-        status_code = response.status_code
-        if status_code == 200:
-            return_content = json.loads(response.content)
-        else:
-            return_content = STATUS_CODE_MAPPING.get(status_code, f"Error {status_code}")
+        response = requests.get(url, params=payload, headers=MB_HEADERS, timeout=5)
+        response.raise_for_status()
+        return response.json()
 
-        return status_code, return_content
-    except requests.RequestException as e:
-        print(e)
-        return 502, f"Request Failed: {e}"
+    except requests.exceptions.Timeout:
+        return 'Timeout error'
+    except requests.exceptions.ConnectionError:
+        return 'Failed to connect to musicbrainz'
+    except requests.exceptions.HTTPError as e:
+        return str(e)
+    except requests.exceptions.RequestException as e:
+        return str(e)
+    except ValueError:
+        return 'Failed to parse JSON response'
+
 
 def get_formats_and_tracks(release_group_mbid):
     formats = set()
@@ -85,7 +84,7 @@ def get_formats_and_tracks(release_group_mbid):
                 release_group=release_group_mbid,
                 limit=releases_per_request,
                 offset=offset,
-                includes='media'
+                includes=['media']
             )
         release_list.extend(result.get('release-list', []))
 
@@ -102,9 +101,11 @@ def get_formats_and_tracks(release_group_mbid):
                     if recording:
                         tracks.append(
                             {
-                                'number': track.get('number'),
+                                'position': track.get('number'),
                                 'title': recording.get('title'),
                                 'length': int(recording.get('length', 0))
                             }
                         )
     return formats, tracks
+
+

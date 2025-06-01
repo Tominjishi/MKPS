@@ -1,6 +1,8 @@
 import requests
 
+
 # Constants
+CAA_URL = 'https://coverartarchive.org/'
 THUMBNAIL_PIXELS = {'s': '-250', 'm': '-500', 'l': '-1200'}
 STATUS_CODE_MAPPING = {
     200: 'Image Retrieved Successfully',
@@ -9,15 +11,21 @@ STATUS_CODE_MAPPING = {
 }
 
 def get_release_group_front_cover_data(mbid, thumbnail_size=''):
-    url = f"https://coverartarchive.org/release-group/{mbid}/front{THUMBNAIL_PIXELS.get(thumbnail_size,'')}"
+    url = CAA_URL + f'release-group/{mbid}/front{THUMBNAIL_PIXELS.get(thumbnail_size,'')}'
     try:
-        response = requests.get(url)
-        status_code = response.status_code
-        content = STATUS_CODE_MAPPING.get(status_code, f"Error {status_code}")
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        return response.content
 
-        if status_code == 200:
-            content = response.content
+    except requests.exceptions.Timeout:
+        print('Timeout error')
+    except requests.exceptions.ConnectionError:
+        print('Failed to connect to musicbrainz')
+    except requests.exceptions.HTTPError as e:
+        print(e)
+    except requests.exceptions.RequestException as e:
+        print(e)
+    except ValueError:
+        print('Failed to parse JSON response')
 
-        return status_code, content
-    except requests.RequestException as e:
-        return 502, f"Request Failed: {e}"
+    return None

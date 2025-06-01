@@ -1,214 +1,194 @@
-# ui
-from PySide6.QtWidgets import(
+from concurrent.futures import ThreadPoolExecutor
+# api services
+import services.musicbrainz_api as mb
+from services.cover_art_archive import get_release_group_front_cover_data
+# ui components
+from ui.components.release_card_components.regular_layout import RegularLayout
+from ui.components.release_card_components.edit_layout import EditLayout
+# db queries
+from data.queries import get_release_types, get_formats, get_artists, get_genres
+from data.release import Release
+# qt
+from PySide6.QtCore import QByteArray, QSize
+from PySide6.QtWidgets import (
     QWidget,
     QLabel,
     QPushButton,
     QHBoxLayout,
     QVBoxLayout,
     QComboBox,
-    QSizePolicy,
-    QListWidget,
     QDialog,
     QMessageBox,
+    QDialogButtonBox,
+    QStackedLayout,
 )
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt, QByteArray
-# api services
-import services.musicbrainz_api as mb
-from services.cover_art_archive import get_release_group_front_cover_data
-# release class
-from data.release import Release
+
 
 class ReleaseGroupCardPage(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
         self.main_window = main_window
-        self.release = None # instance of Release class
+        self.release = None  # instance of Release class
+        self.edit_mode = False
+        self.regular_layout = RegularLayout(self)
+        self.edit_layout = EditLayout(self)
 
         main_layout = QHBoxLayout(self)
 
         # Layout for left side (img and button/combobox under)
         left_layout = QVBoxLayout()
-        
+
         self.img_label = QLabel(self)
-        self.img_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.img_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_label.setFixedSize(QSize(250, 250))
+        self.img_label.setScaledContents(True)
+
+        self.remove_image_button = QPushButton('Remove image')
+        self.remove_image_button.clicked.connect(self.edit_layout.remove_image)
+        self.remove_image_button.hide()
+
+        self.upload_image_button = QPushButton('Upload image')
+        self.upload_image_button.clicked.connect(self.edit_layout.upload_image)
+        self.upload_image_button.hide()
 
         self.add_button = QPushButton('Add to collection', self)
         self.add_button.clicked.connect(self.run_add_dialog)
-        # self.addButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.add_button.setFixedWidth(250)
+
+        self.edit_button = QPushButton('Edit', self)
+        self.edit_button.clicked.connect(self.switch_edit_mode)
+        self.edit_button.setFixedWidth(250)
+
+        self.save_button = QPushButton('Save', self)
+        self.save_button.clicked.connect(self.edit_layout.validate_and_update)
+        self.save_button.setFixedWidth(250)
+        self.save_button.hide()
+
+        self.cancel_button = QPushButton('Cancel', self)
+        self.cancel_button.clicked.connect(self.switch_edit_mode)
+        self.cancel_button.hide()
+
+        self.delete_button = QPushButton('Delete', self)
+        self.delete_button.clicked.connect(self.run_delete_dialog)
 
         left_layout.addWidget(self.img_label)
+        left_layout.addWidget(self.remove_image_button)
+        left_layout.addWidget(self.upload_image_button)
         left_layout.addWidget(self.add_button)
+        left_layout.addWidget(self.edit_button)
+        left_layout.addWidget(self.save_button)
+        left_layout.addWidget(self.cancel_button)
+        left_layout.addWidget(self.delete_button)
         left_layout.addStretch()
         # Hide add button by default
-        self.add_button.hide()
 
         # Right side
-        right_layout = QVBoxLayout()
+        self.right_layout = QStackedLayout()
+        self.right_layout.addWidget(self.regular_layout)
+        self.right_layout.addWidget(self.edit_layout)
+        self.right_layout.setCurrentIndex(0)
 
-        self.artist_title_label = QLabel(self)
-        self.artist_title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
-        self.artist_title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-        self.type_label = QLabel(self)
-        self.type_label.setStyleSheet("font-size: 15px;")
-        self.type_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-        self.release_date_label = QLabel(self)
-        self.release_date_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.genre_label = QLabel(self)
-        self.genre_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-        self.track_list_widget = QListWidget(self)
-        # self.trackListWidget.setMaximumHeight(300)
-
-        right_layout.addWidget(self.artist_title_label)
-        right_layout.addWidget(self.type_label)
-        right_layout.addWidget(self.release_date_label)
-        right_layout.addWidget(self.genre_label)
-        right_layout.addWidget(self.track_list_widget)
-        right_layout.addStretch()
-    
         main_layout.addLayout(left_layout)
-        main_layout.addLayout(right_layout)
+        main_layout.addLayout(self.right_layout)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Dialog for creating collection entry
-        self.add_dialog = QDialog(self)
-        self.add_dialog.setModal(True)
-        self.add_dialog.setWindowTitle('Add to collection')
-        self.add_dialog.setFixedWidth(200)
-        add_dialog_layout = QVBoxLayout(self.add_dialog)
-        # Format Choice
-        format_label = QLabel('Choose a format')
-        self.format_dropdown = QComboBox(self.add_dialog)
-        # Tracklist information
-        tracklist_change_info = QLabel('You may change the tracklist later')
-        # Buttons
-        button_layout = QHBoxLayout()
-        add_dialog_add_button = QPushButton('Add')
-        add_dialog_add_button.setDefault(True)
-        add_dialog_cancel_button = QPushButton('Cancel')
-        add_dialog_add_button.clicked.connect(self.check_format)
-        add_dialog_cancel_button.clicked.connect(self.add_dialog.reject)
-        button_layout.addWidget(add_dialog_add_button)
-        button_layout.addWidget(add_dialog_cancel_button)
+        # Dialog for saving release in collection
+        self.add_dialog = AddDialog(self)
+        self.delete_dialog = DeleteDialog(self)
 
-        add_dialog_layout.addWidget(format_label)
-        add_dialog_layout.addWidget(self.format_dropdown)
-        add_dialog_layout.addWidget(tracklist_change_info)
-        add_dialog_layout.addLayout(button_layout)
-
+    # Construct Release object from mb API and cover art archive
     def populate_from_api(self, release_group_mbid):
-        self.add_button.show()
-
-        # Construct Release object from mb API
-        release_group_response = mb.lookup_release_group_dict(release_group_mbid, 'genres+artists')
-        if release_group_response[0] == 200:
-            result = release_group_response[1]
+        release_group, cover_art, formats_and_tracks = fetch_release_group_data(release_group_mbid)
+        if isinstance(release_group, dict):
+            self.right_layout.setCurrentIndex(0)
+            self.switch_online_mode(True)
 
             # Construct artist credit phrase and list of artists
             artist_credit_phrase = ''
             artists = []
-            for artist in result.get('artist-credit', []):
+            for artist in release_group.get('artist-credit', []):
                 name = artist.get('name')
                 joinphrase = artist.get('joinphrase')
                 artist_credit_phrase += name + joinphrase
                 artists.append(artist.get('artist'))
 
             # Get album cover
-            cover_response = get_release_group_front_cover_data(release_group_mbid, 's')
-            if cover_response[0] == 200:
-                cover = QByteArray(cover_response[1])
+            if isinstance(cover_art, bytes):
+                cover = QByteArray(cover_art)
             else:
                 cover = None
 
             # Get and sort genres
-            genres = result.get('genres')
+            genres = release_group.get('genres')
             if genres:
                 genres = sorted(genres, key=lambda a: a['count'], reverse=True)
 
             # Get tracks and formats
-            formats, tracks = mb.get_formats_and_tracks(release_group_mbid)
+            formats, tracks = formats_and_tracks
 
             # Add possible formats to dropdown when running add dialog
-            self.format_dropdown.clear()
-            self.format_dropdown.addItems(formats)
+            self.add_dialog.format_dropdown.clear()
+            self.add_dialog.format_dropdown.addItems(formats)
 
-            self.release = Release(result.get('id'), result.get('primary-type'), result.get('title'), artist_credit_phrase,
-                              artists, tracks, genres, cover, result.get('first-release-date'))
+            self.release = Release(
+                mbid=release_group.get('id'),
+                release_type=release_group.get('primary-type'),
+                title=release_group.get('title'),
+                artist_credit_phrase=artist_credit_phrase,
+                artists=artists,
+                tracks=tracks,
+                genres=genres,
+                cover=cover,
+                release_date=release_group.get('first-release-date')
+            )
+            self.regular_layout.fill(self.release)
+            return True, None
 
         else:
-            # handle error
-            # self.collectionEntryGroupBox.setTitle(release_group_response[1])
-            return
-
-        self.fill_widget()
-
-
-
-    def fill_widget(self):
-        if self.release.cover:
-            pixmap = QPixmap()
-            pixmap.loadFromData(self.release.cover)
-            self.img_label.setPixmap(pixmap)
-            self.add_button.setFixedWidth(pixmap.width())
-            self.img_label.show()
-        else:
-            self.img_label.hide()
-
-        page_title = (
-            self.release.artist_credit_phrase
-            + ' - '
-            + self.release.title
-        )
-        self.artist_title_label.setText(page_title)
-
-        self.type_label.setText(self.release.type)
-        self.release_date_label.setText(self.release.release_date)
-        if self.release.genres:
-            self.genre_label.show()
-            if self.release.collection_entry_id:
-                genre_list = ', '.join(genre.capitalize() for genre in self.release.genres)
-            else:
-                genre_list = ', '.join(genre['name'].capitalize() for genre in self.release.genres)
-            self.genre_label.setText('Genres: ' + genre_list)
-        else:
-            self.genre_label.hide()
-
-        if self.release.tracks:
-            self.track_list_widget.show()
-            self.track_list_widget.clear()
-            for track in self.release.tracks:
-                num = track['number']
-                title = track['title']
-
-                total_length_ms = track['length']
-                total_length_s = total_length_ms / 1000
-                minutes = int(total_length_s // 60)
-                seconds = round(total_length_s % 60)
-
-                self.track_list_widget.addItem(f"{num} {title} ({minutes}:{seconds:02})")
-        else:
-            self.track_list_widget.hide()
+            return False, release_group
 
     def run_add_dialog(self):
         if self.add_dialog.exec():
-            self.release.insert(self.format_dropdown.currentText())
-            self.add_button.hide()
+            type_inserted, format_inserted, artist_inserted, genre_inserted = self.release.insert_from_mb(
+                self.add_dialog.format_dropdown.currentText()
+            )
+            # Reload collection table and filter boxes if needed
             self.main_window.collection_page.fill_table()
+            if type_inserted:
+                self.main_window.collection_page.filter_boxes['type'].clear()
+                self.main_window.collection_page.filter_boxes['type'].fill(get_release_types())
+            if format_inserted:
+                self.main_window.collection_page.filter_boxes['format'].clear()
+                self.main_window.collection_page.filter_boxes['format'].fill(get_formats())
+            if artist_inserted:
+                self.main_window.collection_page.filter_boxes['artists'].clear()
+                self.main_window.collection_page.filter_boxes['artists'].fill(get_artists())
+            if genre_inserted:
+                self.main_window.collection_page.filter_boxes['genres'].clear()
+                self.main_window.collection_page.filter_boxes['genres'].fill(get_genres())
+            # Hide online buttons and show database buttons
+            self.switch_online_mode(False)
+            # Make sure edit mode is off
+            if self.edit_mode:
+                self.switch_edit_mode()
+
+    def run_delete_dialog(self):
+        if self.delete_dialog.exec():
+            self.release.delete()
+            self.main_window.collection_page.fill_table()
+            self.main_window.navigate_to_page(self.main_window.collection_page)
 
     def check_format(self):
-        format = self.format_dropdown.currentText()
-        if Release.exists_format(self.release.mbid, format):
+        release_format = self.add_dialog.format_dropdown.currentText()
+        if Release.exists_in_format(self.release.title, release_format):
             ret = QMessageBox.warning(
                 self.add_dialog,
                 'Duplicate format',
                 (
-                    f"You already have {self.release.title} in the "
-                    f"{format} format in your collection"
-                    "\nWould you like to add another one?"
+                    f'You already have {self.release.title} in the '
+                    f'{release_format} format in your collection'
+                    '\nWould you like to add another one?'
                 ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
@@ -219,39 +199,92 @@ class ReleaseGroupCardPage(QWidget):
         self.add_dialog.accept()
 
     def populate_from_database(self, release):
-        self.add_button.hide()
-        self.release = release
-        release.fill_tracks()
-        self.fill_widget()
+        if self.edit_mode:
+            self.switch_edit_mode()
+        self.right_layout.setCurrentIndex(0)
+        self.switch_online_mode(False)
 
-    # def switchFormat(self, index):
-    #     colEntryID = self.formatOptionMapping[index]
-    #     self.tracks.clear()
-    #     if self.db.open():
-    #         try:
-    #             query = QSqlQuery()
-    #             query.prepare(
-    #                 """SELECT number, title, length
-    #                 FROM track
-    #                 WHERE collection_entry_id = :id"""
-    #             )
-    #             query.bindValue(':id', colEntryID)
-    #             if not query.exec():
-    #                 raise Exception(
-    #                     'Track fetch failed: : ' + query.lastError().text()
-    #                 )
-    #             self.trackListWidget.show()
-    #             while query.next():
-    #                 self.tracks.append(
-    #                     {
-    #                         'number': query.value('number'),
-    #                         'title': query.value('title'),
-    #                         'length': query.value('length')
-    #                     }
-    #                 )
-    #         except Exception as e:
-    #             print('Error:', e)
-    #             self.trackListWidget.hide()
-    #     else:
-    #         print("Failed to open database: ", self.db.lastError().text())
-    #         self.trackListWidget.hide()
+        self.release = release
+        self.release.fill_tracks()
+        self.regular_layout.fill(self.release)
+
+    def switch_edit_mode(self):
+        self.edit_mode = not self.edit_mode
+        self.edit_button.setVisible(not self.edit_mode)
+        self.remove_image_button.setVisible(self.edit_mode)
+        self.upload_image_button.setVisible(self.edit_mode)
+        self.save_button.setVisible(self.edit_mode)
+        self.cancel_button.setVisible(self.edit_mode)
+        self.right_layout.setCurrentIndex(self.edit_mode)
+        if self.edit_mode:
+            self.edit_layout.fill(self.release)
+        else:
+            self.regular_layout.fill(self.release)
+
+    # Show appropriate buttons whether release from online or in db
+    def switch_online_mode(self, is_online):
+        self.add_button.setVisible(is_online)
+        self.edit_button.setVisible(not is_online)
+        self.delete_button.setVisible(not is_online)
+        self.upload_image_button.setVisible(not is_online and self.edit_mode)
+        self.save_button.setVisible(not is_online and self.edit_mode)
+
+
+class AddDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Add to collection')
+        self.setModal(True)
+        self.page = parent
+
+        layout = QVBoxLayout(self)
+
+        # Format Choice
+        format_label = QLabel('Choose a format')
+        self.format_dropdown = QComboBox(self)
+
+        # Tracklist information
+        change_info = QLabel('You may edit the entry later')
+
+        # Buttons
+        buttons = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        button_box = QDialogButtonBox(buttons, self)
+        button_box.accepted.connect(self.page.check_format)
+        button_box.rejected.connect(self.reject)
+
+        layout.addWidget(format_label)
+        layout.addWidget(self.format_dropdown)
+        layout.addWidget(change_info)
+        layout.addWidget(button_box)
+
+
+class DeleteDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Delete')
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+
+        # Buttons
+        buttons = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        button_box = QDialogButtonBox(buttons, self)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+
+        layout.addWidget(QLabel('Are you sure you want to delete this release?'))
+        layout.addWidget(QLabel('This action cannot be undone!'))
+        layout.addWidget(button_box)
+
+
+def fetch_release_group_data(mbid):
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        future_release_group = executor.submit(mb.lookup_release_group_dict, mbid, 'genres artists')
+        future_cover_data = executor.submit(get_release_group_front_cover_data, mbid, 's')
+        future_formats_and_tracks = executor.submit(mb.get_formats_and_tracks, mbid)
+
+        release_group = future_release_group.result()
+        cover_data = future_cover_data.result()
+        formats_and_tracks = future_formats_and_tracks.result()
+
+    return release_group, cover_data, formats_and_tracks

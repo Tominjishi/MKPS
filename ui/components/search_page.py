@@ -1,7 +1,7 @@
 import math
 from abc import abstractmethod
-
-from PySide6.QtGui import QIcon
+# qt
+from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -13,8 +13,9 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QMessageBox,
 )
-from PySide6.QtCore import Qt
 
+
+# Abstract base class for search pages
 class SearchPage(QWidget):
     PAGE_SIZE = 25
     curr_page = 1
@@ -28,6 +29,7 @@ class SearchPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        # Top bar with search box and pagination buttons
         search_bar = QHBoxLayout()
         search_label = QLabel(f'Search {target}:', self)
         self.search_box = QLineEdit(self)
@@ -35,6 +37,7 @@ class SearchPage(QWidget):
         self.search_box.returnPressed.connect(self.search)
         search_button.clicked.connect(self.search)
 
+        # Pagination controls
         self.pagination = QWidget()
         pagination_layout = QHBoxLayout(self.pagination)
         self.prev_button = QPushButton(QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious), '', self.pagination)
@@ -54,6 +57,7 @@ class SearchPage(QWidget):
         search_bar.addWidget(search_button)
         layout.addLayout(search_bar)
 
+        # Table for displaying search results
         self.result_table = QTableWidget(self)
         self.result_table.hide()
         self.result_table.setColumnCount(len(column_headers))
@@ -67,13 +71,14 @@ class SearchPage(QWidget):
         header.setStretchLastSection(False)
         layout.addWidget(self.result_table)
 
+        # Label for no results found
         self.no_results_label = QLabel('No results found.', self)
         self.no_results_label.hide()
         self.no_results_label.setStyleSheet('font-size: 14px; color: gray;')
         self.no_results_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.no_results_label)
 
-
+    # Perform search based on user input
     def search(self):
         self.user_input = self.search_box.text()
         if self.user_input == '':
@@ -83,6 +88,7 @@ class SearchPage(QWidget):
         self.main_window.statusBar().showMessage('Searching...')
         self.main_window.app.processEvents()
 
+        # Pagination setup
         self.curr_page = 1
         search_result_info = self.get_data()
         count = search_result_info[0]
@@ -94,6 +100,7 @@ class SearchPage(QWidget):
             self.main_window.statusBar().showMessage('Found nothing')
             return
 
+        # Hide pagination if not needed
         if count > self.PAGE_SIZE:
             self.page_count = math.ceil(count / self.PAGE_SIZE)
             self.update_page_count_label()
@@ -108,6 +115,7 @@ class SearchPage(QWidget):
         self.fill_table(result)
         self.main_window.statusBar().showMessage(f'Found {count} results')
 
+    # Page navigation logic
     def switch_page(self, direction):
         self.curr_page += direction
         self.update_page_count_label()

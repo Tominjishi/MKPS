@@ -1,3 +1,4 @@
+# qt
 from PySide6.QtWidgets import(
     QWidget,
     QVBoxLayout,
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import(
     QPushButton
 )
 from PySide6.QtGui import Qt
+
 
 class ReleaseGroupBrowser(QWidget):
     COLUMN_COUNT = 4

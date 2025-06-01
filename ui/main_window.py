@@ -1,18 +1,20 @@
-from PySide6.QtWidgets import(
-    QMainWindow,
-    QStatusBar,
-    QStackedWidget,
-    QToolBar,
-)
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtCore import QSize
-
+# ui pages
 from ui.pages.home_page import HomePage
 from ui.pages.search_artists_page import SearchArtistsPage
 from ui.pages.release_group_list_page import ReleaseGroupListPage
 from ui.pages.release_group_card_page import ReleaseGroupCardPage
 from ui.pages.collection_page import CollectionPage
 from ui.pages.search_release_groups_page import SearchReleaseGroupsPage
+# qt
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import(
+    QMainWindow,
+    QStatusBar,
+    QStackedWidget,
+    QToolBar,
+)
+
 
 class MainWindow(QMainWindow):
     def __init__ (self, app):
@@ -20,7 +22,7 @@ class MainWindow(QMainWindow):
         # Initialize main window parameters
         self.app = app
         self.setWindowTitle('MKPS')
-        self.resize(QSize(1280, 720))
+        self.resize(QSize(1280, 900))
         self.setStatusBar(QStatusBar(self))
 
         # Initialize central QStackedWidget
@@ -35,10 +37,10 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.search_artists_page)
         self.release_group_list_page = ReleaseGroupListPage(self)
         self.pages.addWidget(self.release_group_list_page)
-        self.release_group_card_page = ReleaseGroupCardPage(self)
-        self.pages.addWidget(self.release_group_card_page)
         self.collection_page = CollectionPage(self)
         self.pages.addWidget(self.collection_page)
+        self.release_group_card_page = ReleaseGroupCardPage(self)
+        self.pages.addWidget(self.release_group_card_page)
         self.search_release_groups_page = SearchReleaseGroupsPage(self)
         self.pages.addWidget(self.search_release_groups_page)
 
@@ -64,6 +66,7 @@ class MainWindow(QMainWindow):
         self.history_stack.append(self.pages.currentIndex())
         self.pages.setCurrentWidget(page)
         self.back_action.setEnabled(True)
+        self.statusBar().showMessage('')
 
     def go_back(self):
         self.pages.setCurrentIndex(self.history_stack.pop())

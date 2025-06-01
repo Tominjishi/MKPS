@@ -1,57 +1,79 @@
 import sqlite3
+DB_FILE = 'data/data.db'
 
-DB_FILE = "data/data.db"
 
 create_statements = [
-    """CREATE TABLE IF NOT EXISTS collection_entry(
+    """CREATE TABLE IF NOT EXISTS release (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        release_group_mbid TEXT NOT NULL,
-        type TEXT NOT NULL,
+        format_id INTEGER NOT NULL,
+        type_id INTEGER NOT NULL,
+        release_group_mbid TEXT,
         title TEXT NOT NULL,
         release_date TEXT,
-        format TEXT NOT NULL,
         artist_credit_phrase TEXT NOT NULL,
         cover BLOB,
-        added_at TEXT DEFAULT CURRENT_TIMESTAMP
+        added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(format_id) REFERENCES format(id) ON DELETE CASCADE,
+        FOREIGN KEY(type_id) REFERENCES release_type(id) ON DELETE CASCADE
     );""",
 
-    """CREATE TABLE IF NOT EXISTS artist(
-        mbid TEXT PRIMARY KEY,
-        type TEXT,
-        name TEXT NOT NULL
-    );""",
-
-    """CREATE TABLE IF NOT EXISTS artist_entry_link(
+    """CREATE TABLE IF NOT EXISTS artist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        collection_entry_id INTEGER NOT NULL,
-        artist_mbid TEXT NOT NULL,
-        FOREIGN KEY(collection_entry_id) REFERENCES collection_entry(id) ON DELETE CASCADE,
-        FOREIGN KEY(artist_mbid) REFERENCES artist(mbid) ON DELETE CASCADE
+        mbid TEXT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL
     );""",
 
-    """CREATE TABLE IF NOT EXISTS genre(
-        mbid TEXT PRIMARY KEY,
-        name TEXT NOT NULL
+    """CREATE TABLE IF NOT EXISTS artist_release (
+        release_id INTEGER NOT NULL,
+        artist_id INTEGER NOT NULL,
+        FOREIGN KEY(release_id) REFERENCES release(id) ON DELETE CASCADE,
+        FOREIGN KEY(artist_id) REFERENCES artist(id) ON DELETE CASCADE,
+        PRIMARY KEY (release_id, artist_id)
     );""",
 
-    """CREATE TABLE IF NOT EXISTS genre_link (
+    """CREATE TABLE IF NOT EXISTS genre (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        genre_mbid TEXT NOT NULL,
-        vote_count INTEGER NOT NULL,
-        collection_entry_id INTEGER,
-        artist_mbid TEXT,
-        FOREIGN KEY(collection_entry_id) REFERENCES collection_entry(id) ON DELETE CASCADE,
-        FOREIGN KEY(genre_mbid) REFERENCES genre(mbid) ON DELETE CASCADE,
-        FOREIGN KEY(artist_mbid) REFERENCES artist(mbid) ON DELETE CASCADE
+        mbid TEXT UNIQUE,
+        name TEXT NOT NULL UNIQUE
+    );""",
+
+    """CREATE TABLE IF NOT EXISTS release_genre (
+        genre_id INTEGER NOT NULL,
+        release_id INTEGER NOT NULL,
+        vote_count INTEGER,
+        FOREIGN KEY(genre_id) REFERENCES genre(id) ON DELETE CASCADE,
+        FOREIGN KEY(release_id) REFERENCES release(id) ON DELETE CASCADE
+        PRIMARY KEY (genre_id, release_id)
+    );""",
+
+    """CREATE TABLE IF NOT EXISTS artist_genre (
+        genre_id INTEGER NOT NULL,
+        artist_id INTEGER NOT NULL,
+        vote_count INTEGER,
+        FOREIGN KEY(genre_id) REFERENCES genre(id) ON DELETE CASCADE,
+        FOREIGN KEY(artist_id) REFERENCES artist(id) ON DELETE CASCADE,
+        PRIMARY KEY (genre_id, artist_id)
+    );""",
+
+    """CREATE TABLE IF NOT EXISTS format (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    );""",
+
+    """CREATE TABLE IF NOT EXISTS release_type (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
     );""",
 
     """CREATE TABLE IF NOT EXISTS track (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        number INTEGER NOT NULL,
+        release_id INTEGER NOT NULL,
+        actual_position INTEGER NOT NULL,
+        position INTEGER NOT NULL,
         title TEXT NOT NULL,
         length INTEGER NOT NULL,
-        collection_entry_id INTEGER NOT NULL,
-        FOREIGN KEY(collection_entry_id) REFERENCES collection_entry(id) ON DELETE CASCADE
+        FOREIGN KEY(release_id) REFERENCES release(id) ON DELETE CASCADE
     );"""
 ]
 

@@ -1,21 +1,17 @@
-from PySide6.QtWidgets import(
-    QWidget,
-    QVBoxLayout,
-    QLabel,
-    QTableWidgetItem,
-    QPushButton
-)
-from PySide6.QtCore import Qt
 import math
-
-from ui.components.release_group_browser import ReleaseGroupBrowser
+# mb api
 from services.musicbrainz_api import browse_release_groups
+# ui components
+from ui.components.release_group_browser import ReleaseGroupBrowser
+# qt
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidgetItem, QPushButton, QMessageBox
+
 
 
 class ReleaseGroupListPage(QWidget):
     # Constants
     PAGE_SIZE = 25
-
     def __init__(self, main_window):
         super().__init__(main_window)
         self.main_window = main_window
@@ -33,10 +29,10 @@ class ReleaseGroupListPage(QWidget):
         self.album_table_browser = ReleaseGroupBrowser(self)
         # Page navigation
         self.album_table_browser.prev_button.clicked.connect(
-            lambda checked, browser=self.album_table_browser, release_type='album':self.previous_page(browser, release_type)
+            lambda checked, brows = self.album_table_browser, rel_type = 'album': self.previous_page(brows, rel_type)
         )
         self.album_table_browser.next_button.clicked.connect(
-            lambda checked, browser=self.album_table_browser, release_type='album':self.next_page(browser, release_type)
+            lambda checked, brows = self.album_table_browser, rel_type = 'album': self.next_page(brows, rel_type)
         )
 
         # EP Table
@@ -47,10 +43,24 @@ class ReleaseGroupListPage(QWidget):
         self.ep_table_browser = ReleaseGroupBrowser(self)
         #Page Navigation
         self.ep_table_browser.prev_button.clicked.connect(
-            lambda checked, browser=self.ep_table_browser, release_type='ep':self.previous_page(browser, release_type)
+            lambda checked, brows = self.ep_table_browser, rel_type = 'ep': self.previous_page(brows, rel_type)
         )
         self.ep_table_browser.next_button.clicked.connect(
-            lambda checked, browser=self.ep_table_browser, release_type='ep':self.next_page(browser, release_type)
+            lambda checked, brows = self.ep_table_browser, rel_type='ep': self.next_page(brows, rel_type)
+        )
+
+        # Singles Table
+        # Title
+        self.single_table_title = QLabel('Singles', self)
+        self.single_table_title.setStyleSheet('font-size: 16px;')
+        # Table Browser
+        self.single_table_browser = ReleaseGroupBrowser(self)
+        # Page navigation
+        self.single_table_browser.prev_button.clicked.connect(
+            lambda checked, brows = self.single_table_browser, rel_type = 'single': self.previous_page(brows, rel_type)
+        )
+        self.single_table_browser.next_button.clicked.connect(
+            lambda checked, brows = self.single_table_browser, rel_type = 'ep': self.next_page(brows, rel_type)
         )
 
         layout.addWidget(self.artist_name_label)
@@ -58,12 +68,14 @@ class ReleaseGroupListPage(QWidget):
         layout.addWidget(self.album_table_browser)
         layout.addWidget(self.ep_table_title)
         layout.addWidget(self.ep_table_browser)
+        layout.addWidget(self.single_table_title)
+        layout.addWidget(self.single_table_browser)
 
     def populate_widget(self, artist_mbid, artist_name =''):
         self.artist_mbid = artist_mbid
         self.artist_name_label.setText(artist_name)
 
-        # Init Album
+        # Fill albums
         album_result = browse_release_groups(
             artist=self.artist_mbid,
             release_type='album',
@@ -71,10 +83,10 @@ class ReleaseGroupListPage(QWidget):
         )
         album_count = album_result.get('release-group-count', 0)
         album_list = album_result.get('release-group-list', [])
-        self.album_table_title.setText(f"Albums ({album_count})")
+        self.album_table_title.setText(f'Albums ({album_count})')
         self.init_table_browser(self.album_table_browser, album_count, album_list)
 
-        # Init EP
+        # Fill EPs
         ep_result = browse_release_groups(
             artist=self.artist_mbid,
             release_type='ep',
@@ -84,6 +96,17 @@ class ReleaseGroupListPage(QWidget):
         ep_list = ep_result.get('release-group-list', [])
         self.ep_table_title.setText(f"EP's ({ep_count})")
         self.init_table_browser(self.ep_table_browser, ep_count, ep_list)
+
+        # Fill singles
+        single_result = browse_release_groups(
+            artist=self.artist_mbid,
+            release_type='single',
+            limit=self.PAGE_SIZE
+        )
+        single_count = single_result.get('release-group-count', 0)
+        single_list = single_result.get('release-group-list', [])
+        self.single_table_title.setText(f'Singles ({single_count})')
+        self.init_table_browser(self.single_table_browser, single_count, single_list)
 
     def init_table_browser(self, table_browser, release_count, release_list):
         if release_count == 0 or not release_list:
@@ -98,7 +121,7 @@ class ReleaseGroupListPage(QWidget):
             if release_count > self.PAGE_SIZE:
                 table_browser.pagination_buttons.show()
                 table_browser.page_count = math.ceil(release_count / self.PAGE_SIZE)
-                table_browser.page_count_label.setText(f"Page 1/{table_browser.page_count}")
+                table_browser.page_count_label.setText(f'Page 1/{table_browser.page_count}')
                 table_browser.prev_button.setDisabled(True)
                 table_browser.next_button.setDisabled(False)
             else:
@@ -122,9 +145,10 @@ class ReleaseGroupListPage(QWidget):
             type_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
             table_browser.table.setItem(i, 1, type_item)
 
-            year_item = QTableWidgetItem(releaseGroup.get('first-release-date')[:4])
-            year_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            table_browser.table.setItem(i, 2, year_item)
+            if date := releaseGroup.get('first-release-date'):
+                year_item = QTableWidgetItem(date[:4])
+                year_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                table_browser.table.setItem(i, 2, year_item)
 
             select_button = QPushButton('Select', table_browser.table)
             select_button.clicked.connect(
@@ -132,16 +156,6 @@ class ReleaseGroupListPage(QWidget):
             )
             table_browser.table.setItem(i, 3, QTableWidgetItem())
             table_browser.table.setCellWidget(i, 3, select_button)
-
-            # coverResponseTuple = getReleaseGroupFrontCoverData(releaseGroup['id'],'s')
-            # if coverResponseTuple[0] == 200:
-            #     pixmap = QPixmap()
-            #     pixmap.loadFromData(coverResponseTuple[1])
-            #     icon = QIcon(pixmap)
-            #     coverItem = QTableWidgetItem(icon,'')
-            # else:
-            #     coverItem = QTableWidgetItem(coverResponseTuple[1])
-            #     print(f"Error {coverResponseTuple[0]} for release group {releaseGroup['id']}")
 
 
     def previous_page(self, table_browser, release_type):
@@ -157,7 +171,7 @@ class ReleaseGroupListPage(QWidget):
         table_browser.next_button.setDisabled(table_browser.curr_page == table_browser.page_count)
 
         table_browser.table.clearContents()
-        table_browser.page_count_label.setText(f"Page {table_browser.curr_page}/{table_browser.page_count}")
+        table_browser.page_count_label.setText(f'Page {table_browser.curr_page}/{table_browser.page_count}')
 
         result = browse_release_groups(
             artist=self.artist_mbid,
@@ -169,5 +183,9 @@ class ReleaseGroupListPage(QWidget):
         self.populate_table(table_browser, release_list)
 
     def navigate_to_release_group_card_page(self, release_group_mbid):
-        self.main_window.release_group_card_page.populate_from_api(release_group_mbid)
-        self.main_window.navigate_to_page(self.main_window.release_group_card_page)
+        success, error = self.main_window.release_group_card_page.populate_from_api(release_group_mbid)
+        if success:
+            self.main_window.navigate_to_page(self.main_window.release_group_card_page)
+        else:
+            QMessageBox.critical(self.main_window, 'Error', error)
+
