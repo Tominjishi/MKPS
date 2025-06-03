@@ -1,9 +1,10 @@
-from PySide6.QtWidgets import QHBoxLayout, QWidget, QCheckBox, QPushButton, QSizePolicy
+from PySide6.QtWidgets import QHBoxLayout, QWidget, QCheckBox, QPushButton
 from PySide6.QtGui import QIcon
 
 BUTTON_SIZE = 25
 
-# Individual row in filter list
+
+# Individual row for filter lists
 class FilterRow(QWidget):
     def __init__(self, name):
         super().__init__()

@@ -12,6 +12,8 @@ class GenreFilterLayout(FilterLayout):
     def __init__(self, genres, col_page):
         super().__init__('Genres', genres)
         self.collection_page = col_page
+        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Genre')
+        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
 
     def delete(self, name, db_id):
         # Message box to confirm genre deletion
@@ -30,8 +32,7 @@ class GenreFilterLayout(FilterLayout):
 
     def insert(self):
         # Dialog for manual genre insertion
-        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Genre')
-        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
+        self.insert_dialog.clear()
         if self.insert_dialog.exec() == QDialog.DialogCode.Accepted:
             return self.insert_dialog.inserted_id
         return None
@@ -45,7 +46,9 @@ class GenreFilterLayout(FilterLayout):
 
         # Check for duplicate genre
         if exists_genre(name):
-            QMessageBox.information(self.widget(), 'Duplicate genre', 'There already is a genre with that name in your collection')
+            QMessageBox.information(
+                self.widget(), 'Duplicate genre', 'There already is a genre with that name in your collection'
+            )
             return
 
         self.insert_dialog.inserted_id = insert_genre(name)

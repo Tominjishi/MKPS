@@ -10,6 +10,7 @@ STATUS_CODE_MAPPING = {
     404: 'No Image',
 }
 
+
 def get_release_group_front_cover_data(mbid, thumbnail_size=''):
     url = CAA_URL + f'release-group/{mbid}/front{THUMBNAIL_PIXELS.get(thumbnail_size,'')}'
     try:

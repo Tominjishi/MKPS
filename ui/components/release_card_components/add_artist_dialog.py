@@ -8,6 +8,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QDialogButtonBox, QHBoxLayout, QPushButton
 
 
+# Dialog for adding an artist to a release
 class AddArtistDialog(QDialog):
     def __init__(self, edit_layout):
         super().__init__(edit_layout)
@@ -54,6 +55,7 @@ class AddArtistDialog(QDialog):
             self.edit_layout.artist_list_layout.addWidget(artist_row)
             self.edit_layout.release.artists.append(artist)
 
+    # Create a new artist
     def new_artist(self):
         new_id = self.edit_layout.page.main_window.collection_page.filter_boxes['artists'].insert()
         if new_id:

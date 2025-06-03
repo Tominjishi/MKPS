@@ -25,7 +25,8 @@ class SearchArtistsPage(SearchPage):
     def fill_table(self, result):
         self.result_table.setRowCount(len(result))
         for i, artist in enumerate(result):
-            row_number = (self.curr_page - 1) * self.PAGE_SIZE + i + 1  # Calculate the row number based on current page and index
+            # Calculate the row number based on current page and index
+            row_number = (self.curr_page - 1) * self.PAGE_SIZE + i + 1
             self.result_table.setVerticalHeaderItem(i, QTableWidgetItem(str(row_number)))
 
             artist_name = artist.get('name')
@@ -41,7 +42,7 @@ class SearchArtistsPage(SearchPage):
             if artist_mbid:
                 select_button = QPushButton('Select', self.result_table)
                 select_button.clicked.connect(
-                    lambda checked, a=artist_mbid, b=artist_name:self.navigate_to_release_group_list_page(a, b)
+                    lambda checked, a=artist_mbid, b=artist_name: self.navigate_to_release_group_list_page(a, b)
                 )
             else:
                 select_button = QLabel('-', self.result_table)

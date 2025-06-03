@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidgetItem, QP
 
 
 
+# Page for lists of releases by specific artist found in MB
 class ReleaseGroupListPage(QWidget):
     # Constants
     PAGE_SIZE = 25
@@ -29,10 +30,10 @@ class ReleaseGroupListPage(QWidget):
         self.album_table_browser = ReleaseGroupBrowser(self)
         # Page navigation
         self.album_table_browser.prev_button.clicked.connect(
-            lambda checked, brows = self.album_table_browser, rel_type = 'album': self.previous_page(brows, rel_type)
+            lambda checked, brows=self.album_table_browser, rel_type='album': self.previous_page(brows, rel_type)
         )
         self.album_table_browser.next_button.clicked.connect(
-            lambda checked, brows = self.album_table_browser, rel_type = 'album': self.next_page(brows, rel_type)
+            lambda checked, brows=self.album_table_browser, rel_type='album': self.next_page(brows, rel_type)
         )
 
         # EP Table
@@ -41,12 +42,12 @@ class ReleaseGroupListPage(QWidget):
         self.ep_table_title.setStyleSheet('font-size: 16px;')
         # Table Browser
         self.ep_table_browser = ReleaseGroupBrowser(self)
-        #Page Navigation
+        # Page Navigation
         self.ep_table_browser.prev_button.clicked.connect(
-            lambda checked, brows = self.ep_table_browser, rel_type = 'ep': self.previous_page(brows, rel_type)
+            lambda checked, brows=self.ep_table_browser, rel_type='ep': self.previous_page(brows, rel_type)
         )
         self.ep_table_browser.next_button.clicked.connect(
-            lambda checked, brows = self.ep_table_browser, rel_type='ep': self.next_page(brows, rel_type)
+            lambda checked, brows=self.ep_table_browser, rel_type='ep': self.next_page(brows, rel_type)
         )
 
         # Singles Table
@@ -57,10 +58,10 @@ class ReleaseGroupListPage(QWidget):
         self.single_table_browser = ReleaseGroupBrowser(self)
         # Page navigation
         self.single_table_browser.prev_button.clicked.connect(
-            lambda checked, brows = self.single_table_browser, rel_type = 'single': self.previous_page(brows, rel_type)
+            lambda checked, brows=self.single_table_browser, rel_type='single': self.previous_page(brows, rel_type)
         )
         self.single_table_browser.next_button.clicked.connect(
-            lambda checked, brows = self.single_table_browser, rel_type = 'ep': self.next_page(brows, rel_type)
+            lambda checked, brows=self.single_table_browser, rel_type='ep': self.next_page(brows, rel_type)
         )
 
         layout.addWidget(self.artist_name_label)
@@ -71,7 +72,7 @@ class ReleaseGroupListPage(QWidget):
         layout.addWidget(self.single_table_title)
         layout.addWidget(self.single_table_browser)
 
-    def populate_widget(self, artist_mbid, artist_name =''):
+    def populate_widget(self, artist_mbid, artist_name=''):
         self.artist_mbid = artist_mbid
         self.artist_name_label.setText(artist_name)
 
@@ -152,7 +153,7 @@ class ReleaseGroupListPage(QWidget):
 
             select_button = QPushButton('Select', table_browser.table)
             select_button.clicked.connect(
-                lambda checked, a=releaseGroup['id']:self.navigate_to_release_group_card_page(a)
+                lambda checked, a=releaseGroup['id']: self.navigate_to_release_group_card_page(a)
             )
             table_browser.table.setItem(i, 3, QTableWidgetItem())
             table_browser.table.setCellWidget(i, 3, select_button)
@@ -179,7 +180,7 @@ class ReleaseGroupListPage(QWidget):
             limit=self.PAGE_SIZE,
             offset=(table_browser.curr_page - 1) * self.PAGE_SIZE
         )
-        release_list = result.get('release-group-list',[])
+        release_list = result.get('release-group-list', [])
         self.populate_table(table_browser, release_list)
 
     def navigate_to_release_group_card_page(self, release_group_mbid):
@@ -188,4 +189,3 @@ class ReleaseGroupListPage(QWidget):
             self.main_window.navigate_to_page(self.main_window.release_group_card_page)
         else:
             QMessageBox.critical(self.main_window, 'Error', error)
-

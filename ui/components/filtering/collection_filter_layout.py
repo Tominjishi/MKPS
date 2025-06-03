@@ -11,7 +11,9 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QHBoxLayout,
     QLineEdit,
-    QPushButton, QSizePolicy, QApplication,
+    QPushButton,
+    QSizePolicy,
+    QApplication,
 )
 
 
@@ -24,7 +26,6 @@ from PySide6.QtWidgets import (
 class FilterLayout(QVBoxLayout):
     def __init__(self, title, elements):
         super().__init__()
-        # Header above filter list for displaying search bar and title
         header_bar = QHBoxLayout()
         if title:
             title_label = QLabel(title)
@@ -63,7 +64,7 @@ class FilterLayout(QVBoxLayout):
             self.check_box_group.addButton(row.checkbox)
             self.scroll_layout.addWidget(row)
             row.delete_button.clicked.connect(
-                lambda checked, n=element['name'], id=element['id']: self.delete(n, id)
+                lambda checked, n=element['name'], db_id=element['id']: self.delete(n, db_id)
             )
         self.adjust_scrollarea_height()
 
@@ -84,14 +85,14 @@ class FilterLayout(QVBoxLayout):
             button.setChecked(False)
         self.check_box_group.blockSignals(False)
 
-    # limit scrollarea max height to just enough to fit all rows
+    # Limit scrollarea max height to just enough to fit all rows
     def adjust_scrollarea_height(self):
         QApplication.instance().processEvents()
         height = self.scroll_area.widget().sizeHint().height()
         self.scroll_area.setMaximumHeight(height)
 
     @abstractmethod
-    def delete(self, name, id):
+    def delete(self, name, db_id):
         pass
 
     @abstractmethod

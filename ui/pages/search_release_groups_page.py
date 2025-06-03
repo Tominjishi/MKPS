@@ -6,6 +6,8 @@ from ui.components.search_page import SearchPage
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTableWidgetItem, QPushButton, QLabel, QMessageBox
 
+
+# Subclass of SearchPage that handles searching for releases
 class SearchReleaseGroupsPage(SearchPage):
     def __init__(self, main_window):
         super().__init__(main_window, 'releases', ['Title', 'Artist', 'Type', 'Release Year', ''])
@@ -44,7 +46,7 @@ class SearchReleaseGroupsPage(SearchPage):
             if mbid:
                 select_button = QPushButton('Select', self.result_table)
                 select_button.clicked.connect(
-                    lambda checked, a=mbid:self.navigate_to_release_group_card_page(a)
+                    lambda checked, a=mbid: self.navigate_to_release_group_card_page(a)
                 )
             else:
                 select_button = QLabel('-', self.result_table)

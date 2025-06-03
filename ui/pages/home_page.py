@@ -27,6 +27,7 @@ class HomePage(QWidget):
 
         self.switch_online_mode()
 
+    # Construct and add homepage button
     def add_button(self, text, connection):
         button = QPushButton(text, self)
         button.clicked.connect(connection)
@@ -42,8 +43,8 @@ class HomePage(QWidget):
         self.go_online_button.setVisible(not is_online)
         if not is_online:
             error_msg = (
-                "Could not establish connection with MusicBrainz!\n\n"
-                "Check your internet connection and/or the status of MuiscBrainz services"
+                'Could not establish connection with MusicBrainz!\n\n'
+                'Check your internet connection and/or the status of MusicBrainz services'
             )
             QMessageBox.information(self, 'Connection error', error_msg)
 
@@ -56,9 +57,10 @@ class HomePage(QWidget):
     def navigate_to_collection_page(self):
         self.main_window.navigate_to_page(self.main_window.collection_page)
 
+
 def check_online_status(timeout = 3):
     try:
-        requests.get('https://musicbrainz.org/ws/2/', timeout=3)
+        requests.get('https://musicbrainz.org/ws/2/', timeout=timeout)
         return True
     except requests.RequestException:
         return False

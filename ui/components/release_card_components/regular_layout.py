@@ -6,6 +6,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QListWidget
 
 
+# Release regular view
 class RegularLayout(QWidget):
     def __init__(self, page=None):
         super().__init__(page)
@@ -26,7 +27,6 @@ class RegularLayout(QWidget):
         self.genre_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self.track_list_widget = QListWidget(self.page)
-        # self.trackListWidget.setMaximumHeight(300)
 
         layout.addWidget(self.artist_title_label)
         layout.addWidget(self.type_label)
@@ -44,11 +44,7 @@ class RegularLayout(QWidget):
         else:
             self.page.img_label.hide()
 
-        page_title = (
-                release.artist_credit_phrase
-                + ' - '
-                + release.title
-        )
+        page_title = (release.artist_credit_phrase + ' - ' + release.title)
         self.artist_title_label.setText(page_title)
 
         self.type_label.setText(release.type)

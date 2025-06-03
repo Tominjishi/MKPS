@@ -2,7 +2,14 @@
 from ui.components.filtering.collection_filter_layout import FilterLayout
 from ui.components.simple_insert_dialog import SimpleInsertDialog
 # db queries
-from data.queries import get_five_releases_of_type, get_types_but_one, delete_release_type, get_release_types, exists_release_type, insert_release_type
+from data.queries import (
+    get_five_releases_of_type,
+    get_types_but_one,
+    delete_release_type,
+    get_release_types,
+    exists_release_type,
+    insert_release_type,
+)
 # qt
 from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import (
@@ -17,11 +24,13 @@ from PySide6.QtWidgets import (
 )
 
 
-# Genre filter area layout
+# Release type filter area layout
 class RelTypeFilterLayout(FilterLayout):
     def __init__(self, types, col_page):
         super().__init__('Types', types)
         self.collection_page = col_page
+        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Type')
+        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
 
     def delete(self, name, db_id):
         # Check if there are releases of that type
@@ -62,7 +71,7 @@ class RelTypeFilterLayout(FilterLayout):
             buttons = QDialogButtonBox()
             buttons.addButton(delete_button, QDialogButtonBox.ButtonRole.AcceptRole)
             buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
-            buttons.accepted.connect(lambda d = db_id: self.delete_releases(d))
+            buttons.accepted.connect(lambda d=db_id: self.delete_releases(d))
             buttons.rejected.connect(self.reassignment_dialog.reject)
 
             dialog_layout.addWidget(QLabel(reassignment_message))
@@ -117,8 +126,7 @@ class RelTypeFilterLayout(FilterLayout):
 
     def insert(self):
         # Dialog for manual release type insertion
-        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Type')
-        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
+        self.insert_dialog.clear()
         if self.insert_dialog.exec() == QDialog.DialogCode.Accepted:
             return self.insert_dialog.inserted_id
         return None

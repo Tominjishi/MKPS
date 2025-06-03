@@ -8,6 +8,8 @@ MB_HEADERS = {
     # 'Accept': 'application/json'
 }
 
+
+# Wrapper for handling musicbrainzngs calls and errors
 def _musicbrainzngs_api_call(api_function, *args):
     try:
         return api_function(*args)
@@ -17,29 +19,27 @@ def _musicbrainzngs_api_call(api_function, *args):
 
 
 def search_artists(query, limit=None, offset=None):
-    return _musicbrainzngs_api_call(
-        m.search_artists, query, limit, offset)
+    return _musicbrainzngs_api_call(m.search_artists, query, limit, offset)
+
 
 def search_release_groups(query='', limit=None, offset=None, strict=False):
-    return _musicbrainzngs_api_call(
-        m.search_release_groups, query, limit, offset, strict)
+    return _musicbrainzngs_api_call(m.search_release_groups, query, limit, offset, strict)
 
 
 def browse_release_groups(artist=None, release=None, release_type=[], includes=[], limit=None, offset=None):
-    return _musicbrainzngs_api_call(
-        m.browse_release_groups, artist, release, release_type, includes, limit, offset)
+    return _musicbrainzngs_api_call(m.browse_release_groups, artist, release, release_type, includes, limit, offset)
 
 
 def get_release_group_by_id(mbid, includes=[], release_status=[], release_type=[]):
-    return _musicbrainzngs_api_call(
-        m.get_release_group_by_id, mbid, includes, release_status, release_type)
+    return _musicbrainzngs_api_call(m.get_release_group_by_id, mbid, includes, release_status, release_type)
 
 
 def browse_releases(artist=None, track_artist=None, label=None, recording=None, release_group=None, release_status=[],
                     release_type=[], includes=[], limit=None, offset=None):
     return _musicbrainzngs_api_call(
         m.browse_releases, artist, track_artist, label, recording, release_group, release_status, release_type,
-        includes, limit, offset)
+        includes, limit, offset
+    )
 
 
 def lookup_release_group_dict(mbid, inc=''):
@@ -63,6 +63,7 @@ def lookup_release_group_dict(mbid, inc=''):
         return 'Failed to parse JSON response'
 
 
+# Iterate through specific releases of a release group and get a tracklist and each unique media format
 def get_formats_and_tracks(release_group_mbid):
     formats = set()
     tracks = []
@@ -103,7 +104,7 @@ def get_formats_and_tracks(release_group_mbid):
                             {
                                 'position': track.get('number'),
                                 'title': recording.get('title'),
-                                'length': int(recording.get('length', 0))
+                                'length': int(recording.get('length', 0)),
                             }
                         )
     return formats, tracks

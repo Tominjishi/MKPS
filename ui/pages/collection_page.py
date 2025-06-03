@@ -22,12 +22,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QMessageBox,
-    QLabel,
-    QGridLayout
+    QGridLayout,
 )
 
 TABLE_ICON_SIZE = 50
 
+
+# Page for showing user's collection
 class CollectionPage(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -128,16 +129,16 @@ class CollectionPage(QWidget):
 
         # checkbox group connection to filtering function
         artist_filter_layout.check_box_group.buttonToggled.connect(
-            lambda checkbox, checked, filter_by = 'artists': self.filter(checkbox, checked, filter_by)
+            lambda checkbox, checked, filter_by='artists': self.filter(checkbox, checked, filter_by)
         )
         genre_filter_layout.check_box_group.buttonToggled.connect(
-            lambda checkbox, checked, filter_by = 'genres': self.filter(checkbox, checked, filter_by)
+            lambda checkbox, checked, filter_by='genres': self.filter(checkbox, checked, filter_by)
         )
         rel_type_filter_layout.check_box_group.buttonToggled.connect(
-            lambda checkbox, checked, filter_by = 'type': self.filter(checkbox, checked, filter_by)
+            lambda checkbox, checked, filter_by='type': self.filter(checkbox, checked, filter_by)
         )
         format_filter_layout.check_box_group.buttonToggled.connect(
-            lambda checkbox, checked, filter_by = 'format': self.filter(checkbox, checked, filter_by)
+            lambda checkbox, checked, filter_by='format': self.filter(checkbox, checked, filter_by)
         )
 
         # add individual filter layouts to list and general filter layout
@@ -163,14 +164,14 @@ class CollectionPage(QWidget):
         self.releases = Release.get_all()
         self.collection_table.setRowCount(len(self.releases))
         if self.releases:
-            # counters to keep track of stats
+            # Counters to keep track of stats
             artist_counter = Counter()
             genre_counter = Counter()
             type_counter = Counter()
             format_counter = Counter()
             for row, release in enumerate(self.releases):
-                self.add_row(row, release)  # add row to table
-                # statistics
+                self.add_row(row, release)  # Add row to table
+                # Stats
                 type_counter[release.type] += 1
                 format_counter[release.format] += 1
                 for artist in release.artists:
@@ -178,22 +179,23 @@ class CollectionPage(QWidget):
                 for genre in release.genres:
                     genre_counter[genre['name']] += 1
 
+            # Calculate and show statistics
             self.s_release_count.setText(f'<b>Total releases:</b> {len(self.releases)}')
             self.s_format_releases.setText(
-                '<b>Most releases by format:</b> ' +
+                '<b>Most releases by format:</b> '
                 ', '.join(f'{form} - {count}' for form, count in format_counter.most_common(5))
             )
             self.s_type_releases.setText(
-                '<b>Most releases by type:</b> ' +
+                '<b>Most releases by type:</b> '
                 ', '.join(f'{typ} - {count}' for typ, count in type_counter.most_common(5))
             )
             self.s_most_common_genres.setText(
-                '<b>Most releases by genre:</b> ' +
+                '<b>Most releases by genre:</b> '
                 ', '.join(f'{genre} - {count}' for genre, count in genre_counter.most_common(5))
             )
             self.s_unique_genre_count.setText(f'<b>Unique genres:</b> {len(genre_counter.keys())}')
             self.s_most_common_artists.setText(
-                '<b>Most releases by artist:</b> ' +
+                '<b>Most releases by artist:</b> '
                 ', '.join(f'{artist} - {count}' for artist, count in artist_counter.most_common(5))
             )
             self.s_unique_artist_count.setText(f'<b>Unique artists:</b> {len(artist_counter.keys())}')
@@ -203,6 +205,7 @@ class CollectionPage(QWidget):
             self.s_newest_release.setText(f'<b>Newest release:</b> {newest_date} - {newest_name}')
             self.s_average_tracks.setText(f'<b>Average tracks per release:</b> {Release.get_average_tracks()}')
 
+    # Add row to table using release instance
     def add_row(self, row, release):
         cover_item = QTableWidgetItem()
         if release.cover:
@@ -234,9 +237,7 @@ class CollectionPage(QWidget):
         added_at_item.setToolTip(release.added_at)
 
         select_button = QPushButton('Select')
-        select_button.clicked.connect(
-            lambda checked, a=release: self.open_card(a)
-        )
+        select_button.clicked.connect(lambda checked, a=release: self.open_card(a))
 
         self.collection_table.setItem(row, 0, cover_item)
         self.collection_table.setItem(row, 1, artist_item)
@@ -321,6 +322,7 @@ class CollectionPage(QWidget):
             select_button.click()
         else:
             QMessageBox.information(self, 'Empty collection', 'Your collection is empty!')
+
 
 # create list of single item for strings (type, format) and list of name values (artists, genres) to filter by
 def get_filterable_list(value):

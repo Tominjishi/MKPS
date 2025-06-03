@@ -3,6 +3,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 
 
+# Row of artist or genre in release edit layout
 class EditArtistGenreRow(QWidget):
     def __init__(self, row_dict):
         super().__init__()

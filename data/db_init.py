@@ -1,6 +1,7 @@
 import sqlite3
-DB_FILE = 'data/data.db'
 
+
+DB_FILE = 'data/data.db'
 
 create_statements = [
     """CREATE TABLE IF NOT EXISTS release (

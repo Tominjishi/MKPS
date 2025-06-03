@@ -12,6 +12,8 @@ class ArtistFilterLayout(FilterLayout):
     def __init__(self, artists, col_page):
         super().__init__('Artists', artists)
         self.collection_page = col_page
+        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Artist', True)
+        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
 
     def delete(self, name, db_id):
         # Check if deleting artist will cause releases with no artist
@@ -50,9 +52,7 @@ class ArtistFilterLayout(FilterLayout):
                 self.collection_page.fill_table()
 
     def insert(self):
-        # Dialog for manual artist insertion
-        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Artist', True)
-        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
+        self.insert_dialog.clear()
         if self.insert_dialog.exec() == QDialog.DialogCode.Accepted:
             return self.insert_dialog.inserted_id
         return False
@@ -77,7 +77,9 @@ class ArtistFilterLayout(FilterLayout):
             duplicate_confirmation.setIcon(QMessageBox.Icon.Warning)
             duplicate_confirmation.setWindowTitle('Duplicate artist')
             duplicate_confirmation.setModal(True)
-            duplicate_confirmation.setText('There already is an artist with that name in your collection.\n\n Add Anyway?')
+            duplicate_confirmation.setText(
+                'There already is an artist with that name in your collection.\n\n Add Anyway?'
+            )
             duplicate_confirmation.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
             if duplicate_confirmation.exec() != QMessageBox.StandardButton.Ok:
                 return

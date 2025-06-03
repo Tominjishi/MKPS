@@ -7,7 +7,7 @@ from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QDialogButtonBox, QHBoxLayout, QPushButton
 
 
-
+# Dialog for adding a genre to a release
 class AddGenreDialog(QDialog):
     def __init__(self, edit_layout):
         super().__init__(edit_layout)
@@ -54,6 +54,7 @@ class AddGenreDialog(QDialog):
             self.edit_layout.genre_scroll_layout.addWidget(genre_row)
             self.edit_layout.release.genres.append(genre)
 
+    # Create a new genre
     def new_genre(self):
         new_id = self.edit_layout.page.main_window.collection_page.filter_boxes['genres'].insert()
         if new_id:

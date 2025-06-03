@@ -7,11 +7,13 @@ from data.queries import get_five_releases_of_format, delete_format, get_formats
 from PySide6.QtWidgets import QMessageBox, QDialog
 
 
-# Artist filter area layout
+# Format filter area layout
 class FormatFilterLayout(FilterLayout):
     def __init__(self, formats, col_page):
         super().__init__('Formats', formats)
         self.collection_page = col_page
+        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Type')
+        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
 
     def delete(self, name, db_id):
         # Check if deleting format will cause releases with no format
@@ -53,8 +55,7 @@ class FormatFilterLayout(FilterLayout):
 
     def insert(self):
         # Dialog for manual format insertion
-        self.insert_dialog = SimpleInsertDialog(self.collection_page, 'Insert Type')
-        self.insert_dialog.buttons.accepted.connect(self.validate_and_insert)
+        self.insert_dialog.clear()
         if self.insert_dialog.exec() == QDialog.DialogCode.Accepted:
             return self.insert_dialog.inserted_id
         return None
@@ -69,9 +70,7 @@ class FormatFilterLayout(FilterLayout):
         # Check for duplicate genre
         if exists_format(name):
             QMessageBox.information(
-                self.widget(),
-                'Duplicate release type',
-                'There already is a format with that name in your collection'
+                self.widget(), 'Duplicate release type', 'There already is a format with that name in your collection'
             )
             return
 

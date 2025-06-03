@@ -8,7 +8,7 @@ from ui.pages.search_release_groups_page import SearchReleaseGroupsPage
 # qt
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import(
+from PySide6.QtWidgets import (
     QMainWindow,
     QStatusBar,
     QStackedWidget,
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import(
 
 
 class MainWindow(QMainWindow):
-    def __init__ (self, app):
+    def __init__(self, app):
         super().__init__()
         # Initialize main window parameters
         self.app = app

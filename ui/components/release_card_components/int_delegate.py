@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QStyledItemDelegate, QLineEdit
 from PySide6.QtGui import QIntValidator
 
 
-# Class for creating integer delegator to limit track list length inputs to integers
+# Delegate for limiting inputs to integers
 class IntDelegate(QStyledItemDelegate):
     def __init__(self, minimum=0, maximum=999, parent=None):
         super().__init__(parent)

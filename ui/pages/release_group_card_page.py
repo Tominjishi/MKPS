@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
+# Page for viewing a single release from MB or database or editing/creating one
 class ReleaseGroupCardPage(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
+from pathlib import Path
 # ui components
 from ui.components.release_card_components.add_artist_dialog import AddArtistDialog
 from ui.components.release_card_components.add_genre_dialog import AddGenreDialog
@@ -26,10 +27,11 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QTableWidgetItem,
     QMessageBox,
-    QFileDialog
+    QFileDialog,
 )
 
 
+# Release editing view
 class EditLayout(QScrollArea):
     def __init__(self, page=None):
         super().__init__(page)
@@ -102,7 +104,7 @@ class EditLayout(QScrollArea):
         self.artist_list_layout = QVBoxLayout(artist_list)
         self.artist_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         add_artist_button = QPushButton('Add artist')
-        add_artist_button.clicked.connect(lambda checked, edit_layout = self: AddArtistDialog(edit_layout))
+        add_artist_button.clicked.connect(lambda checked, edit_layout=self: AddArtistDialog(edit_layout))
         self.artist_list_layout.addWidget(add_artist_button)
         layout.addWidget(artist_list)
 
@@ -111,7 +113,7 @@ class EditLayout(QScrollArea):
         genre_box = QGroupBox('Genres:')
         genre_box_layout = QVBoxLayout(genre_box)
         add_genre_button = QPushButton('Add genre')
-        add_genre_button.clicked.connect(lambda checked, edit_layout = self: AddGenreDialog(edit_layout))
+        add_genre_button.clicked.connect(lambda checked, edit_layout=self: AddGenreDialog(edit_layout))
         genre_box_layout.addWidget(add_genre_button)
         # Scroll area for genre list
         genre_scroll_area = QScrollArea()
@@ -157,11 +159,11 @@ class EditLayout(QScrollArea):
 
         layout.addStretch()
 
-    def fill(self, release = None):
+    def fill(self, release=None):
         self.clear()
         self.release = deepcopy(release)
 
-        # If editing fill with existing data
+        # If editing existing release, fill with current data
         if release:
             if release.cover:
                 cover_pixmap = QPixmap()
@@ -212,13 +214,15 @@ class EditLayout(QScrollArea):
                     self.genre_ids.add(genre['id'])
                     genre_row = EditArtistGenreRow(genre)
                     genre_row.remove_button.clicked.connect(
-                        lambda checked, g_id=genre['id'], row_widget=genre_row: self.remove_genre(g_id, row_widget))
+                        lambda checked, g_id=genre['id'], row_widget=genre_row: self.remove_genre(g_id, row_widget)
+                    )
                     self.genre_scroll_layout.addWidget(genre_row)
 
             if release.tracks:
                 self.track_list.setRowCount(len(release.tracks))
                 self.track_list.blockSignals(True)  # block signals to not call on_track_edit
                 for row, track in enumerate(release.tracks):
+                    # Construct table row for each track
                     pos = track['position']
                     title = track['title']
                     total_length_ms = track['length']
@@ -478,7 +482,7 @@ class EditLayout(QScrollArea):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             'Select Image',
-            '',
+            str(Path.home() / 'Pictures'),
             'Images (*.png *.jpg *.jpeg *.bmp *.gif)'
         )
         # get binary file and set to pixmap

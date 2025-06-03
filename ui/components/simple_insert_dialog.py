@@ -1,10 +1,11 @@
 # qt
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QHBoxLayout, QVBoxLayout, QComboBox, QDialogButtonBox
 
 
+# Basic dialog for inserting new table row with name input and type choice for artist
 class SimpleInsertDialog(QDialog):
-    def __init__(self, parent, title, is_artist = False):
+    def __init__(self, parent, title, is_artist=False):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setModal(True)
@@ -20,7 +21,8 @@ class SimpleInsertDialog(QDialog):
         name_layout.addWidget(self.name_input)
         layout.addLayout(name_layout)
 
-        if is_artist:
+        self.is_artist = is_artist
+        if self.is_artist:
             type_label = QLabel('Type: ')
             self.type_dropdown = QComboBox()
             self.type_dropdown.addItem('')
@@ -35,3 +37,8 @@ class SimpleInsertDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
         self.adjustSize()
+
+    def clear(self):
+        self.name_input.clear()
+        if self.is_artist:
+            self.type_dropdown.setCurrentIndex(0)

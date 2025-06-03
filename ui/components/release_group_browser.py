@@ -1,16 +1,17 @@
 # qt
-from PySide6.QtWidgets import(
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QTableWidget,
     QHeaderView,
     QLabel,
     QHBoxLayout,
-    QPushButton
+    QPushButton,
 )
 from PySide6.QtGui import Qt
 
 
+# Table with pagination to browse artist's releases
 class ReleaseGroupBrowser(QWidget):
     COLUMN_COUNT = 4
     COLUMN_HEADERS = ['Title', 'Type', 'Release Year', '']
