@@ -183,20 +183,20 @@ class CollectionPage(QWidget):
             self.s_release_count.setText(f'<b>Total releases:</b> {len(self.releases)}')
             self.s_format_releases.setText(
                 '<b>Most releases by format:</b> '
-                ', '.join(f'{form} - {count}' for form, count in format_counter.most_common(5))
+                + ', '.join(f'{form} - {count}' for form, count in format_counter.most_common(5))
             )
             self.s_type_releases.setText(
                 '<b>Most releases by type:</b> '
-                ', '.join(f'{typ} - {count}' for typ, count in type_counter.most_common(5))
+                + ', '.join(f'{typ} - {count}' for typ, count in type_counter.most_common(5))
             )
             self.s_most_common_genres.setText(
                 '<b>Most releases by genre:</b> '
-                ', '.join(f'{genre} - {count}' for genre, count in genre_counter.most_common(5))
+                + ', '.join(f'{genre} - {count}' for genre, count in genre_counter.most_common(5))
             )
             self.s_unique_genre_count.setText(f'<b>Unique genres:</b> {len(genre_counter.keys())}')
             self.s_most_common_artists.setText(
                 '<b>Most releases by artist:</b> '
-                ', '.join(f'{artist} - {count}' for artist, count in artist_counter.most_common(5))
+                + ', '.join(f'{artist} - {count}' for artist, count in artist_counter.most_common(5))
             )
             self.s_unique_artist_count.setText(f'<b>Unique artists:</b> {len(artist_counter.keys())}')
             oldest_date, oldest_name = Release.get_oldest_release()

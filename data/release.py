@@ -64,7 +64,7 @@ class Release:
                 type_inserted = True
 
             # Get format id if in db
-            self.format_id = exists_format(self.format)
+            self.format_id = exists_format(chosen_format)
             if not self.format_id:
                 # Create new format and get id
                 query.prepare('INSERT INTO format (name) VALUES(:format)')
