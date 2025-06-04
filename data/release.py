@@ -543,7 +543,7 @@ class Release:
             if not query.exec():
                 raise Exception('Get average tracks failed: ' + query.lastError().text())
             if query.next():
-                return query.value('average')
+                return round(query.value('average'), 2)
             return None
         except Exception as e:
             print('Error:', e)
