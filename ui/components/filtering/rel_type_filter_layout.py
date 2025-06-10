@@ -54,7 +54,7 @@ class RelTypeFilterLayout(FilterLayout):
             self.type_dropdown.insertItem(0, '')
             # Insert types in combobox index equal to id for easier id retrieval
             for release_type in available_types:
-                self.type_dropdown.insertItem(release_type['id'], release_type['name'])
+                self.type_dropdown.addItem(release_type['name'], release_type['id'])
             reassign_button = QPushButton('Reassign')
             reassign_button.clicked.connect(lambda checked, d=db_id: self.reassign(d))
             reassign_layout = QHBoxLayout()
@@ -104,7 +104,7 @@ class RelTypeFilterLayout(FilterLayout):
             QMessageBox.information(self.widget(), 'Reassign error', 'You must choose a type if you wish to reassign')
             return
         else:
-            reassign_type_id = self.type_dropdown.currentIndex()
+            reassign_type_id = self.type_dropdown.currentData()
             delete_release_type(db_id, reassign_type_id)
             self.reassignment_dialog.accept()
 
